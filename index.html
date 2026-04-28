@@ -380,13 +380,13 @@ body.silent-refresh .trash-item {
                 <button type="button" class="connection-btn" onclick="testNetworkConnection()">ПРОВЕРИТЬ</button>
             </div>
             <button type="button" class="connection-btn find" onclick="findNetworkHosts()">НАЙТИ ПК В СЕТИ</button>
-            <button type="button" class="connection-btn find" id="checkUpdateBtn" onclick="checkAppUpdate()" style="display:none;">ПРОВЕРИТЬ ОБНОВЛЕНИЕ</button>
-            <button type="button" class="connection-btn primary" id="installUpdateBtn" onclick="installAppUpdate()" style="display:none; width:100%; margin-top:8px;">ОБНОВИТЬ С ГЛАВНОГО ПК</button>
 
             <div id="networkStatus" class="connection-status">Загрузка настроек...</div>
-            <div id="updateStatus" class="update-status"></div>
             <div id="networkFoundList" class="connection-found"></div>
             </div>
+            <button type="button" class="connection-btn find" id="checkUpdateBtn" onclick="checkAppUpdate()" style="display:none;">ПРОВЕРИТЬ ОБНОВЛЕНИЕ</button>
+            <button type="button" class="connection-btn primary" id="installUpdateBtn" onclick="installAppUpdate()" style="display:none; width:100%; margin-top:8px;">ОБНОВИТЬ С ГЛАВНОГО ПК</button>
+            <div id="updateStatus" class="update-status"></div>
         </div>
     </div>
 </div>
@@ -1259,6 +1259,7 @@ let authRefreshTimer = null;
 let authRefreshBusy = false;
 let lastRenderedAuthSignature = '';
 let ratesSaveTimer = null;
+let pendingUpdateConfig = null;
 
 function roleLabel(role) {
     if (role === 'admin') return 'Админ';
@@ -1681,6 +1682,7 @@ function updateUpdateControls(config = collectNetworkConfig(), updateAvailable =
     const normalized = normalizeNetworkConfig(config);
     const isGithub = normalized.updateSource === 'github';
     const canCheck = isGithub || normalized.mode === 'client';
+    pendingUpdateConfig = updateAvailable ? normalized : null;
     if (checkBtn) checkBtn.style.display = canCheck ? 'block' : 'none';
     if (installBtn) {
         installBtn.style.display = canCheck && updateAvailable ? 'block' : 'none';
@@ -1803,8 +1805,8 @@ async function testNetworkConnection() {
     }
 }
 
-async function checkAppUpdate(showNoUpdateMessage = true) {
-    const config = collectNetworkConfig();
+async function checkAppUpdate(showNoUpdateMessage = true, configOverride = null) {
+    const config = normalizeNetworkConfig(configOverride || collectNetworkConfig());
     const isGithub = config.updateSource === 'github';
     if (!isGithub && config.mode !== 'client') {
         updateUpdateControls(config, false);
@@ -1839,10 +1841,76 @@ async function checkAppUpdate(showNoUpdateMessage = true) {
     }
 }
 
-async function installAppUpdate() {
-    const config = collectNetworkConfig();
+function githubAutoConfig(config = collectNetworkConfig()) {
+    const normalized = normalizeNetworkConfig(config);
+    if (!normalized.githubOwner || !normalized.githubRepo) return null;
+    return normalizeNetworkConfig({ ...normalized, updateSource: 'github' });
+}
+
+function lanAutoConfig(config = collectNetworkConfig()) {
+    const normalized = normalizeNetworkConfig(config);
+    if (normalized.mode !== 'client' || !normalized.host) return null;
+    return normalizeNetworkConfig({ ...normalized, updateSource: 'lan' });
+}
+
+async function autoStartupUpdateCheck() {
+    const baseConfig = collectNetworkConfig();
+    const githubConfig = githubAutoConfig(baseConfig);
+    const lanConfig = lanAutoConfig(baseConfig);
+
+    if (githubConfig) {
+        setUpdateStatus('Автопроверка GitHub...', 'warn');
+        try {
+            const result = await ipcRenderer.invoke('check-app-update', githubConfig);
+            if (!result?.ok) throw new Error(result?.error || 'GitHub не ответил');
+            updateUpdateControls(githubConfig, Boolean(result.updateAvailable));
+            setVersionBadge(result.local || localAppManifest, result.remote || null, Boolean(result.updateAvailable));
+            if (result.updateAvailable) {
+                setUpdateStatus('В GitHub найдена новая версия. Нажмите ОБНОВИТЬ ИЗ GITHUB.', 'warn');
+            } else {
+                setUpdateStatus(result.message || 'GitHub: версия актуальная', 'ok');
+            }
+            return;
+        } catch (err) {
+            if (!lanConfig) {
+                setUpdateStatus('GitHub недоступен. LAN для проверки не настроен.', 'bad');
+                return;
+            }
+            setUpdateStatus('GitHub недоступен, проверяю версию по LAN...', 'warn');
+        }
+    }
+
+    if (!lanConfig) {
+        if (!githubConfig) setUpdateStatus('Автопроверка обновлений не настроена', 'warn');
+        return;
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('check-app-update', lanConfig);
+        if (!result?.ok) {
+            setUpdateStatus(result?.error || 'Не удалось проверить версию по LAN', 'bad');
+            setConnectionIndicator(false, true);
+            return;
+        }
+        setConnectionIndicator(true, true);
+        updateUpdateControls(lanConfig, Boolean(result.updateAvailable));
+        setVersionBadge(result.local || localAppManifest, result.remote || null, Boolean(result.updateAvailable));
+        if (result.updateAvailable) {
+            setUpdateStatus('На главном ПК найдена новая версия. Обновляю по LAN...', 'warn');
+            await installAppUpdate({ configOverride: lanConfig, skipConfirm: true, autoMode: true });
+        } else {
+            setUpdateStatus(result.message || 'LAN: версия актуальная', 'ok');
+        }
+    } catch (err) {
+        setUpdateStatus('Ошибка LAN-проверки: ' + (err.message || err), 'bad');
+        setConnectionIndicator(false, true);
+    }
+}
+
+async function installAppUpdate(options = {}) {
+    const config = normalizeNetworkConfig(options.configOverride || pendingUpdateConfig || collectNetworkConfig());
     const isGithub = config.updateSource === 'github';
-    const ok = await showAppConfirm({
+    const ok = options.skipConfirm ? true : await showAppConfirm({
         title: 'Обновить приложение',
         message: isGithub
             ? 'Скачать файлы программы из GitHub и заменить текущую версию на этом ПК? Перед заменой будет создана резервная копия. История, чеки, база и настройки не удаляются.'
@@ -2508,6 +2576,11 @@ window.onload = async () => {
     await syncBillsFromDisk();
     await renderHistory();
     calculate();
+    setTimeout(() => {
+        autoStartupUpdateCheck().catch(err => {
+            setUpdateStatus('Ошибка автопроверки обновлений: ' + (err.message || err), 'bad');
+        });
+    }, 700);
 };
 
 async function selectUser(name) {
