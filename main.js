@@ -17,6 +17,9 @@ const isDev = !app.isPackaged;
 const folderPath = isDev 
     ? __dirname 
     : (process.env.PORTABLE_EXECUTABLE_DIR || path.dirname(process.execPath));
+const electronProfilePath = path.join(folderPath, 'electron_profile');
+fs.mkdirSync(electronProfilePath, { recursive: true });
+app.setPath('userData', electronProfilePath);
 
 const dbPath = path.join(folderPath, 'history_database.json');
 const trashPath = path.join(folderPath, 'trash_database.json'); // Исправлено для надежности
@@ -27,7 +30,7 @@ const networkConfigPath = path.join(folderPath, 'network_config.json');
 const authAccountsPath = path.join(folderPath, 'auth_accounts.json');
 const sqlitePath = path.join(folderPath, 'fx_database.sqlite');
 const shiftArchivePath = path.join(folderPath, 'shift_archive.json');
-const APP_UPDATE_FILES = ['index.html', 'main.js', 'package.json', 'package-lock.json', 'start_fx.bat'];
+const APP_UPDATE_FILES = ['index.html', 'main.js', 'package.json', 'package-lock.json', 'start_fx.bat', 'publish_github.bat'];
 const APP_VERSION = require('./package.json').version || '1.0.0';
 
 let sqliteDb = null;
@@ -242,6 +245,52 @@ function buildUpdateManifest() {
     };
 }
 
+function compareAppVersions(a = '0.0.0', b = '0.0.0') {
+    const left = String(a || '0.0.0').split('.').map(part => Number(part) || 0);
+    const right = String(b || '0.0.0').split('.').map(part => Number(part) || 0);
+    const length = Math.max(left.length, right.length);
+    for (let i = 0; i < length; i += 1) {
+        const diff = (left[i] || 0) - (right[i] || 0);
+        if (diff > 0) return 1;
+        if (diff < 0) return -1;
+    }
+    return 0;
+}
+
+function buildUpdateCheckResult(local, remote, sourceName) {
+    const versionCompare = compareAppVersions(remote?.version, local?.version);
+    if (versionCompare < 0) {
+        return {
+            ok: true,
+            updateAvailable: false,
+            local,
+            remote,
+            message: `У вас новая версия. В ${sourceName} лежит старая версия ${remote?.version || 'unknown'}`
+        };
+    }
+
+    if (versionCompare > 0) {
+        return {
+            ok: true,
+            updateAvailable: true,
+            local,
+            remote,
+            message: `В ${sourceName} есть новая версия ${remote?.version || ''}`.trim()
+        };
+    }
+
+    const updateAvailable = local.fingerprint !== remote.fingerprint;
+    return {
+        ok: true,
+        updateAvailable,
+        local,
+        remote,
+        message: updateAvailable
+            ? `В ${sourceName} есть изменения в той же версии`
+            : `Версия совпадает с ${sourceName}`
+    };
+}
+
 function isSameAppManifest(manifest, reference = buildUpdateManifest()) {
     return Boolean(manifest)
         && manifest.app === reference.app
@@ -277,14 +326,7 @@ async function checkAppUpdateFromHost(configInput = readNetworkConfig()) {
         return { ok: false, message: remote?.error || 'Главный ПК не отдал версию приложения', local };
     }
 
-    const updateAvailable = local.fingerprint !== remote.manifest.fingerprint;
-    return {
-        ok: true,
-        updateAvailable,
-        local,
-        remote: remote.manifest,
-        message: updateAvailable ? 'На главном ПК есть новая версия' : 'Версия совпадает с главным ПК'
-    };
+    return buildUpdateCheckResult(local, remote.manifest, 'главном ПК');
 }
 
 function githubRawConfig(config = readNetworkConfig()) {
@@ -391,14 +433,9 @@ async function buildGithubUpdatePackage(config = readNetworkConfig()) {
 
 async function checkAppUpdateFromGithub(config = readNetworkConfig(), local = buildUpdateManifest()) {
     const updatePackage = await buildGithubUpdatePackage(config);
-    const updateAvailable = local.fingerprint !== updatePackage.manifest.fingerprint;
     return {
-        ok: true,
-        source: 'github',
-        updateAvailable,
-        local,
-        remote: updatePackage.manifest,
-        message: updateAvailable ? 'В GitHub есть новая версия' : 'Версия совпадает с GitHub'
+        ...buildUpdateCheckResult(local, updatePackage.manifest, 'GitHub'),
+        source: 'github'
     };
 }
 
@@ -417,6 +454,12 @@ function installDownloadedUpdatePackage(updatePackage) {
     if (!updatePackage?.ok || !Array.isArray(updatePackage.files) || !updatePackage.manifest) {
         const sourceName = updatePackage?.source === 'github' ? 'GitHub' : 'Главный ПК';
         return { ok: false, error: updatePackage?.error || `${sourceName} не отдал файлы обновления` };
+    }
+    if (compareAppVersions(updatePackage.manifest.version, APP_VERSION) < 0) {
+        return {
+            ok: false,
+            error: `У вас новая версия ${APP_VERSION}. Нельзя установить старую версию ${updatePackage.manifest.version || 'unknown'}`
+        };
     }
 
     const allowed = new Set(APP_UPDATE_FILES);
