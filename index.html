@@ -261,8 +261,7 @@
     .split-remaining-title { display: flex; justify-content: space-between; gap: 10px; color: #ffffff; font-size: 12px; font-weight: 900; margin-bottom: 8px; text-transform: uppercase; }
     .split-remaining-title b { color: #00a878; white-space: nowrap; }
     .split-remaining-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-    .split-remaining-cell { background: #2d3436; border: 2px solid #55efc4; border-radius: 8px; padding: 8px 4px; color: #ffffff; cursor: pointer; font-size: 11px; font-weight: 900; text-align: center; }
-    .split-remaining-cell:hover { border-color: #55efc4; }
+    .split-remaining-cell { background: #2d3436; border: 2px solid #465257; border-radius: 8px; padding: 8px 4px; color: #ffffff; cursor: default; user-select: none; font-size: 11px; font-weight: 900; text-align: center; }
     .split-remaining-cell b { display: block; color: #00a878; font-size: 14px; margin-top: 2px; }
 
     .rate-setup-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 12px; border: 1px solid #dee2e6; }
@@ -448,10 +447,10 @@ body.silent-refresh .trash-item {
                 <b id="splitRemainingAmd">0 ֏</b>
             </div>
             <div class="split-remaining-grid">
-                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('RUB')">RUB <b id="split-rem-RUB">0</b></button>
-                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('USD')">USD <b id="split-rem-USD">0</b></button>
-                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('EUR')">EUR <b id="split-rem-EUR">0</b></button>
-                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('AMD')">AMD <b id="split-rem-AMD">0</b></button>
+                <div class="split-remaining-cell">RUB <b id="split-rem-RUB">0</b></div>
+                <div class="split-remaining-cell">USD <b id="split-rem-USD">0</b></div>
+                <div class="split-remaining-cell">EUR <b id="split-rem-EUR">0</b></div>
+                <div class="split-remaining-cell">AMD <b id="split-rem-AMD">0</b></div>
             </div>
         </div>
 
@@ -2750,6 +2749,10 @@ function setSplitCurrency(part, curr) {
     ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
         document.getElementById(`split${part}-${code}`)?.classList.toggle('active', code === curr);
     });
+    if (part === 2) {
+        setSplitChangeCurrency(curr);
+        return;
+    }
     calcSplit();
 }
 
@@ -2782,20 +2785,6 @@ function toggleSplitTipMode() {
         });
     }
     isSplitTipMode = !isSplitTipMode;
-    calcSplit();
-}
-
-function applySplitRemainder(curr) {
-    const state = getSplitState();
-    const suggestedValue = state.remainingOptions[curr] || 0;
-    setSplitCurrency(2, curr);
-
-    const input = document.getElementById('splitVal2');
-    if (input) {
-        input.value = suggestedValue || '';
-        input.focus();
-        input.select();
-    }
     calcSplit();
 }
 
