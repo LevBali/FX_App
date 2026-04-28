@@ -28,10 +28,12 @@ const logPath = path.join(folderPath, 'daily_log.txt');
 const historyClearMarkerPath = path.join(folderPath, 'history_clear_marker.json');
 const networkConfigPath = path.join(folderPath, 'network_config.json');
 const authAccountsPath = path.join(folderPath, 'auth_accounts.json');
+const ratesSettingsPath = path.join(folderPath, 'rates_settings.json');
 const sqlitePath = path.join(folderPath, 'fx_database.sqlite');
 const shiftArchivePath = path.join(folderPath, 'shift_archive.json');
 const APP_UPDATE_FILES = ['index.html', 'main.js', 'package.json', 'package-lock.json', 'start_fx.bat', 'publish_github.bat'];
 const APP_VERSION = require('./package.json').version || '1.0.0';
+const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
 
 let sqliteDb = null;
 let sqliteReady = false;
@@ -115,6 +117,27 @@ function readJsonObjectFile(filePath, fallback = {}) {
 function writeJsonObjectFile(filePath, data, fallback = {}) {
     const value = data && typeof data === 'object' && !Array.isArray(data) ? data : fallback;
     fs.writeFileSync(filePath, JSON.stringify(value, null, 2));
+}
+
+function normalizeRates(value = {}) {
+    const normalized = {};
+    Object.entries(DEFAULT_RATES).forEach(([code, fallback]) => {
+        const num = Number(value?.[code]);
+        normalized[code] = Number.isFinite(num) && num > 0 ? num : fallback;
+    });
+    return normalized;
+}
+
+function readRatesSettings() {
+    const rates = normalizeRates(readJsonObjectFile(ratesSettingsPath, DEFAULT_RATES));
+    if (!fs.existsSync(ratesSettingsPath)) writeJsonObjectFile(ratesSettingsPath, rates, DEFAULT_RATES);
+    return rates;
+}
+
+function writeRatesSettings(value) {
+    const rates = normalizeRates(value);
+    writeJsonObjectFile(ratesSettingsPath, rates, DEFAULT_RATES);
+    return rates;
 }
 
 function normalizeAuthStore(store = {}) {
@@ -1526,6 +1549,10 @@ async function handleLocalChannel(channel, payload) {
             return deleteAuthAccount(payload);
         case 'merge-auth-store':
             return mergeAuthStore(payload);
+        case 'get-rates':
+            return { ok: true, rates: readRatesSettings(), path: ratesSettingsPath };
+        case 'save-rates':
+            return { ok: true, rates: writeRatesSettings(payload?.rates || payload), path: ratesSettingsPath };
         case 'save-bill':
             saveBill(payload);
             return { ok: true };
@@ -1764,6 +1791,22 @@ ipcMain.handle('merge-auth-store', async (event, payload) => {
         return await handleIpcChannel('merge-auth-store', payload);
     } catch (err) {
         return { ok: false, error: err.message || String(err), store: readAuthStore() };
+    }
+});
+
+ipcMain.handle('get-rates', async () => {
+    try {
+        return await handleIpcChannel('get-rates');
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), rates: readRatesSettings() };
+    }
+});
+
+ipcMain.handle('save-rates', async (event, payload) => {
+    try {
+        return await handleIpcChannel('save-rates', payload);
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), rates: readRatesSettings() };
     }
 });
 

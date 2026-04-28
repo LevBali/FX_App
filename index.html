@@ -110,6 +110,8 @@
     .rate-item { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
     .rates-header .rate-item label { display: block; width: 18px; color: #8a96a3; font-size: 13px; font-weight: 800; line-height: 1; margin: 0; text-align: center; }
     .rates-header .rate-item input[type="number"] { width: 100%; min-width: 0; height: 28px; text-align: center; border: 1px solid #dfe6ec; border-radius: 6px; padding: 2px 4px; font-size: 14px; font-weight: 700; color: #4f5b66; background: rgba(255,255,255,0.72); box-shadow: none; }
+    .rates-header.rates-locked .rate-item input[type="number"],
+    .rate-setup-row input[readonly] { cursor: default; color: #8a96a3; background: rgba(238,242,246,0.9); border-color: #dfe6ec; caret-color: transparent; }
 
     .card { background: #fff; padding: 20px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 15px; }
     .field-label { display: block; margin-bottom: 8px; font-weight: 800; color: #444; font-size: 13px; text-transform: uppercase; }
@@ -493,9 +495,9 @@ body.silent-refresh .trash-item {
         <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
 
         <div class="rates-header">
-            <div class="rate-item"><label>₽</label><input type="number" id="rRUB" value="4.2" oninput="calculate()"></div>
-            <div class="rate-item"><label>$</label><input type="number" id="rUSD" value="395" oninput="calculate()"></div>
-            <div class="rate-item"><label>€</label><input type="number" id="rEUR" value="420" oninput="calculate()"></div>
+            <div class="rate-item"><label>₽</label><input type="number" id="rRUB" value="3.7" oninput="calculate(); scheduleRateSave()"></div>
+            <div class="rate-item"><label>$</label><input type="number" id="rUSD" value="320" oninput="calculate(); scheduleRateSave()"></div>
+            <div class="rate-item"><label>€</label><input type="number" id="rEUR" value="360" oninput="calculate(); scheduleRateSave()"></div>
         </div>
 
         <div class="card">
@@ -1132,6 +1134,17 @@ function createBrowserIpcFallback() {
                 return { ok: true, config, status: { config, serverRunning: config.mode === 'host', urls: [] } };
             }
 
+            if (channel === 'get-rates') {
+                const stored = JSON.parse(localStorage.getItem(RATES_STORAGE_KEY) || '{}');
+                return { ok: true, rates: normalizeRates(stored) };
+            }
+
+            if (channel === 'save-rates') {
+                const rates = normalizeRates(payload?.rates || payload || {});
+                localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates));
+                return { ok: true, rates };
+            }
+
             if (channel === 'test-network-connection') {
                 const config = normalizeNetworkConfig(payload);
                 if (config.mode === 'local') return { ok: true, message: 'Локальный режим' };
@@ -1214,6 +1227,8 @@ const LEGACY_ADMIN_ACCOUNTS = ['Qnarik', 'Jasmin', 'Lilit', 'Nvard'];
 const ADMIN_SLOT_COUNT = 4;
 const CASHIER_SLOT_COUNT = 4;
 const NETWORK_CONFIG_STORAGE_KEY = 'fx_network_config_v1';
+const RATES_STORAGE_KEY = 'fx_rates_settings_v1';
+const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
 const DEFAULT_NETWORK_CONFIG = { mode: 'local', host: '', port: 9260, updateSource: 'lan', githubOwner: '', githubRepo: '', githubBranch: 'main' };
 let networkCandidates = [];
 let localAppManifest = null;
@@ -1221,12 +1236,99 @@ let authStoreCache = { admins: {}, cashiers: {} };
 let authRefreshTimer = null;
 let authRefreshBusy = false;
 let lastRenderedAuthSignature = '';
+let ratesSaveTimer = null;
 
 function roleLabel(role) {
     if (role === 'admin') return 'Админ';
     if (role === 'cashier') return 'Кассир';
     if (role === 'developer') return 'Разработка';
     return '';
+}
+
+function normalizeRates(value = {}) {
+    const result = {};
+    Object.entries(DEFAULT_RATES).forEach(([code, fallback]) => {
+        const num = Number(value?.[code]);
+        result[code] = Number.isFinite(num) && num > 0 ? num : fallback;
+    });
+    return result;
+}
+
+function canEditRates() {
+    return currentRole === 'admin' || currentRole === 'developer';
+}
+
+function currentRateValues() {
+    return normalizeRates({
+        RUB: document.getElementById('rRUB')?.value,
+        USD: document.getElementById('rUSD')?.value,
+        EUR: document.getElementById('rEUR')?.value
+    });
+}
+
+function applyRates(ratesInput) {
+    const rates = normalizeRates(ratesInput);
+    [
+        ['rRUB', rates.RUB],
+        ['rUSD', rates.USD],
+        ['rEUR', rates.EUR],
+        ['setupRUB', rates.RUB],
+        ['setupUSD', rates.USD],
+        ['setupEUR', rates.EUR]
+    ].forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el && String(el.value) !== String(value)) el.value = value;
+    });
+    calculate();
+}
+
+function updateRateAccess() {
+    const locked = !canEditRates();
+    const ids = ['rRUB', 'rUSD', 'rEUR', 'setupRUB', 'setupUSD', 'setupEUR'];
+    ids.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.readOnly = locked;
+        el.tabIndex = locked ? -1 : 0;
+        el.setAttribute('aria-readonly', locked ? 'true' : 'false');
+    });
+    document.querySelectorAll('.rates-header').forEach(el => el.classList.toggle('rates-locked', locked));
+}
+
+async function loadRatesFromStore() {
+    try {
+        const result = await ipcRenderer.invoke('get-rates');
+        applyRates(result?.rates || DEFAULT_RATES);
+    } catch (err) {
+        applyRates(JSON.parse(localStorage.getItem(RATES_STORAGE_KEY) || '{}'));
+        console.error('Cannot load rates:', err);
+    }
+    updateRateAccess();
+}
+
+async function saveRatesToStoreNow() {
+    if (!canEditRates()) {
+        await loadRatesFromStore();
+        return;
+    }
+    const rates = currentRateValues();
+    localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates));
+    try {
+        await ipcRenderer.invoke('save-rates', { rates });
+    } catch (err) {
+        console.error('Cannot save rates:', err);
+    }
+}
+
+function scheduleRateSave() {
+    if (!canEditRates()) {
+        loadRatesFromStore();
+        return;
+    }
+    if (ratesSaveTimer) clearTimeout(ratesSaveTimer);
+    ratesSaveTimer = setTimeout(() => {
+        saveRatesToStoreNow();
+    }, 250);
 }
 
 function normalizeAuthStore(store = {}) {
@@ -2098,6 +2200,7 @@ async function completeLogin(account) {
 
     setOperator(currentOperator);
     document.getElementById('loginOverlay').style.display = 'none';
+    await loadRatesFromStore();
     document.getElementById('ratesOverlay').style.display = 'flex';
     await syncBillsFromDisk();
     await renderCurrentList();
@@ -2249,6 +2352,7 @@ async function renderWithoutRefreshEffect() {
 async function refreshWorkspaceFromDisk(options = {}) {
     if (!currentOperator || !isMainWorkspaceOpen()) return;
     const before = workspaceRenderSignature();
+    if (!canEditRates()) await loadRatesFromStore();
     await syncBillsFromDisk();
     const after = workspaceRenderSignature();
     if (options.forceRender || before !== after) {
@@ -2271,8 +2375,28 @@ function startAutoSync() {
     }, 3000);
 }
 
+function initRateInputGuards() {
+    ['rRUB', 'rUSD', 'rEUR', 'setupRUB', 'setupUSD', 'setupEUR'].forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.addEventListener('keydown', event => {
+            if (!canEditRates()) event.preventDefault();
+        });
+        el.addEventListener('paste', event => {
+            if (!canEditRates()) event.preventDefault();
+        });
+        el.addEventListener('wheel', event => {
+            if (!canEditRates()) {
+                event.preventDefault();
+                el.blur();
+            }
+        }, { passive: false });
+    });
+}
+
 window.onload = async () => {
     dedupeShiftButtons();
+    initRateInputGuards();
     moveTotalPanelToSide();
     await syncAlwaysOnTopState();
     await loadNetworkSettings();
@@ -2292,9 +2416,16 @@ async function selectUser(name) {
 
 async function startShift() {
     dedupeShiftButtons();
-    document.getElementById('rRUB').value = document.getElementById('setupRUB').value;
-    document.getElementById('rUSD').value = document.getElementById('setupUSD').value;
-    document.getElementById('rEUR').value = document.getElementById('setupEUR').value;
+    if (canEditRates()) {
+        applyRates({
+            RUB: document.getElementById('setupRUB').value,
+            USD: document.getElementById('setupUSD').value,
+            EUR: document.getElementById('setupEUR').value
+        });
+        await saveRatesToStoreNow();
+    } else {
+        await loadRatesFromStore();
+    }
 
     setOperator(currentOperator);
     document.getElementById('ratesOverlay').style.display = 'none';
@@ -2309,6 +2440,7 @@ function setOperator(name) {
     const roleText = roleLabel(currentRole);
     document.getElementById('currentUserName').innerText = roleText ? `${name} (${roleText})` : name;
     updateDeveloperToolsVisibility();
+    updateRateAccess();
 }
 
 function updateDeveloperToolsVisibility() {
