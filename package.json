@@ -1,0 +1,14 @@
+{
+  "name": "fx-app",
+  "version": "1.0.2",
+  "description": "FX cashier calculator",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.js"
+  },
+  "devDependencies": {
+    "electron": "41.3.0"
+  }
+}

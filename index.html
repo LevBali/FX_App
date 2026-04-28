@@ -1,0 +1,3994 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Калькулятор FX v9.26 (rounded first)</title>
+<style>
+    .tabs-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    background: #f1f2f6;
+    padding: 10px;
+    border-radius: 8px;
+}
+
+.tab-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    background: #dfe4ea;
+}
+
+.tab-btn.active {
+    background: #2f3542;
+    color: white;
+}
+
+.trash-item {
+    background: #ffffff;
+    border-left: 5px solid #ff4757;
+    margin-bottom: 10px;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+    body { font-family: 'Segoe UI', sans-serif; background-color: #e9ecef; margin: 10px; display: flex; justify-content: center; }
+    .wrapper { width: 100%; max-width: 950px; display: none; gap: 20px; flex-wrap: wrap; }
+    .calc-container { flex: 1; min-width: 320px; }
+
+    #loginOverlay, #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000; }
+    #loginOverlay { align-items: flex-start; overflow-y: auto; padding: 18px 10px; box-sizing: border-box; }
+    #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { display: none; }
+    #splitOverlay { overflow-y: auto; align-items: flex-start; padding: 12px 0; box-sizing: border-box; }
+    #splitOverlay .login-box { max-height: calc(100vh - 24px); overflow-y: auto; }
+    .login-box { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 340px; }
+    .login-shell { width: 100%; max-width: 790px; display: flex; gap: 14px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
+    #loginOverlay .login-box { flex: 0 0 340px; box-sizing: border-box; }
+    
+    .admin-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; margin-top: 20px; }
+    .admin-btn { padding: 20px; border: none; background: #4a76c5; color: white; border-radius: 15px; font-size: 18px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    .admin-btn:active { transform: scale(0.95); background: #355894; }
+    .login-section { text-align: left; margin-top: 18px; }
+    .login-section-title { color: #747d8c; font-size: 12px; font-weight: 900; text-transform: uppercase; }
+    .login-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+    .login-slot { position: relative; }
+    .login-btn { padding: 13px 10px; border: none; background: #4a76c5; color: white; border-radius: 12px; font-size: 15px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+    .login-slot .login-btn { width: 100%; padding-right: 40px; }
+    .login-btn:active { transform: scale(0.97); }
+    .login-btn.cashier { background: #27ae60; }
+    .login-btn.dev { width: 100%; margin-top: 14px; background: #2d3436; }
+    .login-delete-btn { position: absolute; top: 7px; right: 7px; width: 26px; height: 26px; border: none; border-radius: 999px; background: #111820; color: #ff7675; font-size: 18px; font-weight: 900; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0,0,0,0.22); }
+    .login-delete-btn.cashier { color: #55efc4; }
+    .login-delete-btn:active { transform: scale(0.96); }
+    .login-note { margin-top: 8px; color: #95a5a6; font-size: 11px; text-align: center; }
+    .connection-card { flex: 0 0 340px; box-sizing: border-box; background: #ffffff; padding: 18px; border-radius: 20px; text-align: left; box-shadow: 0 18px 45px rgba(0,0,0,0.22); }
+    .connection-title { font-size: 17px; font-weight: 900; color: #2d3436; margin-bottom: 4px; }
+    .connection-subtitle { color: #7f8c8d; font-size: 11px; font-weight: 700; margin-bottom: 12px; }
+    .connection-field { margin-top: 10px; }
+    .connection-field label { display: block; color: #636e72; font-size: 11px; font-weight: 900; text-transform: uppercase; margin-bottom: 5px; }
+    .connection-card select,
+    .connection-card input,
+    .connection-card input[type="number"],
+    .connection-card input[type="text"] { width: 100%; box-sizing: border-box; border: 2px solid #2d3436; border-radius: 10px; padding: 10px 11px; background: #111820; color: #fff; font-size: 15px; font-weight: 800; outline: none; caret-color: #55efc4; }
+    .connection-card select:focus,
+    .connection-card input:focus { border-color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.18); }
+    .connection-row { display: grid; grid-template-columns: 1fr 105px; gap: 8px; }
+    .connection-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .connection-btn { border: none; border-radius: 10px; padding: 11px 8px; color: #fff; background: #2d3436; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .connection-btn.primary { background: #27ae60; }
+    .connection-btn.find { width: 100%; margin-top: 8px; background: #4a76c5; }
+    .connection-status { min-height: 20px; margin-top: 10px; padding: 9px 10px; border-radius: 10px; background: #edf1f4; color: #2d3436; font-size: 12px; font-weight: 800; line-height: 1.25; }
+    .connection-status.ok { background: #e8f8f1; color: #0f7a45; }
+    .connection-status.warn { background: #00ADB5; color: #111820; }
+    .connection-status.bad { background: #ffe6e6; color: #b00020; }
+    .app-version-badge { margin-top: 8px; padding: 7px 9px; border-radius: 9px; background: #111820; color: #55efc4; font-size: 11px; font-weight: 900; line-height: 1.25; }
+    .update-status { display: none; min-height: 18px; margin-top: 8px; padding: 8px 9px; border-radius: 10px; background: #edf1f4; color: #2d3436; font-size: 11px; font-weight: 800; line-height: 1.25; }
+    .update-status.ok { display: block; background: #e8f8f1; color: #0f7a45; }
+    .update-status.warn { display: block; background: #00ADB5; color: #111820; }
+    .update-status.bad { display: block; background: #ffe6e6; color: #b00020; }
+    .connection-found { display: grid; gap: 6px; margin-top: 8px; }
+    .connection-found button { width: 100%; border: 1px solid #55efc4; border-radius: 10px; padding: 9px; background: #111820; color: #55efc4; font-size: 12px; font-weight: 900; cursor: pointer; text-align: left; }
+    #appPromptOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); z-index: 20000; }
+    .app-prompt-box { width: 320px; background: #fff; border-radius: 16px; padding: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.25); }
+    .app-prompt-box h3 { margin: 0 0 8px; font-size: 18px; }
+    .app-prompt-box p { margin: 0 0 12px; color: #636e72; font-size: 13px; }
+    .app-prompt-box input { width: 100%; box-sizing: border-box; border: 2px solid #55efc4; border-radius: 10px; padding: 12px; font-size: 18px; font-weight: 800; outline: none; background: #111820; color: #ffffff; caret-color: #55efc4; }
+    .app-prompt-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .app-prompt-actions button { border: none; border-radius: 10px; padding: 10px; font-weight: 900; cursor: pointer; }
+    .app-prompt-cancel { background: #edf1f4; color: #636e72; }
+    .app-prompt-ok { background: #27ae60; color: #fff; }
+
+    .user-badge { background: #4a76c5; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; margin-bottom: 10px; display: inline-block; font-weight: bold; }
+
+    .rates-header { background: rgba(255,255,255,0.65); padding: 6px 8px; border-radius: 8px; margin-bottom: 8px; display: flex; gap: 6px; border: 1px solid #dde4ea; box-shadow: none; opacity: 0.82; }
+    .rate-item { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
+    .rates-header .rate-item label { display: block; width: 18px; color: #8a96a3; font-size: 13px; font-weight: 800; line-height: 1; margin: 0; text-align: center; }
+    .rates-header .rate-item input[type="number"] { width: 100%; min-width: 0; height: 28px; text-align: center; border: 1px solid #dfe6ec; border-radius: 6px; padding: 2px 4px; font-size: 14px; font-weight: 700; color: #4f5b66; background: rgba(255,255,255,0.72); box-shadow: none; }
+
+    .card { background: #fff; padding: 20px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 15px; }
+    .field-label { display: block; margin-bottom: 8px; font-weight: 800; color: #444; font-size: 13px; text-transform: uppercase; }
+    input[type="number"], select { width: 100%; padding: 14px; border: 3px solid #2d3436; border-radius: 12px; font-size: 24px; font-weight: 800; outline: none; box-sizing: border-box; background: #111820; color: #ffffff; caret-color: #55efc4; }
+    input[type="number"]:focus, select:focus, .app-prompt-box input:focus { border-color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.18); }
+    
+    .price-display { background: #fff5f5; border: 2px solid #feb2b2; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: center; }
+    .price-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .price-curr-btn { width: 100%; border: 2px solid #ffd0d0; border-radius: 10px; padding: 9px 4px; background: rgba(255,255,255,0.82); color: #d63031; cursor: pointer; text-align: center; box-sizing: border-box; }
+    .price-curr-btn.active { border-color: #55efc4; background: #ffffff; box-shadow: 0 0 0 1px rgba(85,239,196,0.22); }
+    .price-cell-label { display: block; font-size: 11px; font-weight: 900; color: #7f8c8d; text-transform: uppercase; }
+    .price-cell-value { display: block; margin-top: 4px; font-size: 20px; font-weight: 900; color: #d63031; }
+    .price-cell-exact { display: block; margin-top: 5px; font-size: 10px; font-weight: 700; color: #7f8c8d; line-height: 1.2; }
+
+    .change-with-actions { display: grid; grid-template-columns: 74px minmax(0, 1fr); gap: 10px; align-items: stretch; margin-top: 15px; }
+    .change-side-actions { display: grid; grid-template-rows: repeat(2, minmax(64px, 1fr)); gap: 10px; }
+    .change-side-action { border: 2px solid #55efc4; border-radius: 14px; background: #111820; color: #55efc4; font-size: 18px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.28); }
+    .change-side-action:active { transform: scale(0.97); }
+    .change-side-action.tip-side { background: #00ADB5; border-color: #00ADB5; color: #111820; font-size: 15px; }
+    .change-container { background: #2d3436; padding: 15px; border-radius: 15px; margin-top: 15px; color: white; }
+    .change-with-actions .change-container { margin-top: 0; }
+    .change-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 15px; }
+    .change-btn { background: #3d4446; border: 2px solid #444; padding: 10px 5px; border-radius: 10px; color: #fff; cursor: pointer; text-align: center; }
+    .change-btn b { font-size: 16px; color: #55efc4; display: block; }
+    .change-btn.active { border-color: #55efc4; background: #000; }
+
+    .change-display { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #444; padding-top: 10px; }
+    .change-result { min-width: 0; }
+    .change-big { font-size: 50px; font-weight: 900; color: #55efc4; line-height: 1; }
+    
+    .tip-toggle { background: #444; color: #888; border: 2px solid #555; border-radius: 10px; padding: 10px 15px; font-weight: 800; font-size: 11px; cursor: pointer; text-transform: uppercase; }
+    .tip-toggle.active { background: #d63031; color: white; border-color: #ff7675; }
+
+    .save-btn { width: 100%; padding: 18px; background: #27ae60; color: #fff; border: none; border-radius: 15px; font-size: 20px; font-weight: 800; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 0 #219150; }
+    .split-btn { width: 100%; padding: 10px; background: #4a76c5; color: white; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; font-size: 13px; }
+    .manual-tip-open-btn { width: 100%; padding: 10px; background: #00ADB5; color: #111820; border: none; border-radius: 10px; font-weight: 900; margin-top: 10px; cursor: pointer; font-size: 13px; }
+
+    .history-container { width: 380px; background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+    .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; background: #111820; padding: 5px; border-radius: 12px; }
+    .tab { min-width: 0; padding: 9px 3px; text-align: center; font-size: 10px; font-weight: 900; cursor: pointer; border-radius: 8px; color: #ffffff; background: #2d3436; border: 2px solid transparent; line-height: 1.15; overflow-wrap: anywhere; }
+    .tab.active { background: #000000; color: #55efc4; border-color: #55efc4; box-shadow: none; }
+
+    .search-box { margin-bottom: 10px; position: relative; }
+    .search-input { width: 100%; padding: 10px 35px 10px 12px; border-radius: 10px; border: 2px solid #55efc4; font-size: 13px; font-weight: 800; box-sizing: border-box; outline: none; background: #111820; color: #ffffff; caret-color: #55efc4; }
+    .search-input::placeholder { color: #9fb0b7; opacity: 1; }
+    .search-icon { position: absolute; right: 12px; top: 10px; color: #55efc4; }
+
+    .history-list { overflow-y: auto; max-height: 380px; min-height: 300px; }
+    .history-item { background: #f8f9fa; padding: 10px; margin-bottom: 8px; border-radius: 10px; border-left: 5px solid #4a76c5; position: relative; font-size: 13px; }
+    .history-item.split-operation { background: #effaf3; border-left-color: #27ae60; }
+    .history-item.shortage-item { background: #ffe6e6; border-left-color: #ff4d4f; color: #6b0a0a; }
+    .del-btn { position: absolute; top: 8px; right: 8px; background: #ff7675; color: white; border: none; border-radius: 4px; cursor: pointer; padding: 2px 6px; font-size: 10px; }
+
+    .total-panel { background: #2d3436; color: white; padding: 15px; border-radius: 15px; margin-top: 15px; }
+    .total-panel.inline-total-panel { margin-top: 14px; }
+    .total-row { display: flex; justify-content: space-between; margin-bottom: 6px; font-size: 14px; }
+    .curr-line { color: #55efc4; font-weight: bold; }
+    
+    .db-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+    .db-btn { padding: 8px; border-radius: 8px; border: 1px solid #ddd; cursor: pointer; font-size: 10px; font-weight: bold; text-transform: uppercase; background: #f1f2f6; }
+    .shift-open-btn { width: 100%; border: none; border-radius: 12px; padding: 12px; margin-top: 12px; background: #2d3436; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #15191a; }
+    .dev-clean-btn { width: 100%; border: none; border-radius: 12px; padding: 11px; margin-top: 8px; background: #6c5ce7; color: #fff; font-size: 12px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #4834b8; display: none; }
+    .dev-common-history-btn { background: #d63031; box-shadow: 0 3px 0 #9e1f20; }
+    .shift-box { width: 380px; max-height: 92vh; overflow-y: auto; background: #fff; border-radius: 16px; padding: 18px; position: relative; box-shadow: 0 18px 45px rgba(0,0,0,0.28); }
+    .shift-close-x { position: absolute; top: 10px; right: 10px; border: none; background: #edf1f4; color: #636e72; border-radius: 8px; width: 30px; height: 30px; font-size: 18px; font-weight: 900; cursor: pointer; }
+    .shift-report { width: 72mm; max-width: 100%; margin: 0 auto; color: #000; background: #fff; font-family: Consolas, 'Courier New', monospace; font-size: 12.5px; font-weight: 700; line-height: 1.28; }
+    .shift-report h2 { margin: 0 0 8px; text-align: center; font-size: 16px; font-weight: 900; letter-spacing: 0; }
+    .shift-report .line { border-top: 1px dashed #111; margin: 8px 0; }
+    .shift-report .row { display: flex; justify-content: space-between; gap: 10px; margin: 3px 0; }
+    .shift-report .row b { white-space: nowrap; font-weight: 900; }
+    .shift-report .muted { color: #222; font-size: 11px; font-weight: 700; }
+    .shift-report .total { font-size: 14px; font-weight: 900; }
+    .shift-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .shift-action-btn { border: none; border-radius: 10px; padding: 12px 8px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; }
+    .shift-print-btn { background: #4a76c5; }
+    .shift-danger-btn { background: #d63031; }
+    .history-tools { display: grid; gap: 8px; margin: 0 0 10px; }
+    .currency-filter-row { display: none; grid-template-columns: repeat(5, 1fr); gap: 5px; }
+    .currency-filter-row.active { display: grid; }
+    .filter-btn { border: 2px solid #2d3436; background: #2d3436; color: #fff; border-radius: 8px; padding: 7px 3px; font-size: 11px; font-weight: 900; cursor: pointer; }
+    .filter-btn.active { background: #000; border-color: #55efc4; color: #55efc4; }
+    .shift-card { background: #f8f9fa; border-left: 5px solid #2d3436; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 12px; }
+    .shift-card-title { display: flex; justify-content: space-between; gap: 8px; font-weight: 900; cursor: pointer; }
+    .shift-card-summary { margin-top: 7px; display: grid; gap: 3px; color: #2d3436; }
+    .shift-card-details { display: none; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 8px; }
+    .shift-card.open .shift-card-details { display: block; }
+    .week-clear-btn { width: 100%; border: none; border-radius: 10px; background: #d63031; color: #fff; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
+    .week-print-btn { width: 100%; border: none; border-radius: 10px; background: #00ADB5; color: #111820; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
+    .week-report-box { background: #2d3436; color: #fff; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 12px; }
+    .week-report-title { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: #55efc4; font-weight: 900; margin-bottom: 8px; }
+    .week-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; }
+    .week-report-row { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 6px; margin-top: 6px; }
+    .week-report-muted { color: #b8c0c4; font-size: 11px; font-weight: 800; margin-top: 8px; }
+    .manual-tip-box { width: 340px; background: #fff; border-radius: 18px; padding: 20px; text-align: center; }
+    .manual-tip-box h3 { margin: 0 0 12px; }
+    .manual-tip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 12px; }
+    .manual-tip-curr { padding: 10px 6px; border: 2px solid #55efc4; border-radius: 10px; background: #2d3436; color: #fff; font-weight: 900; cursor: pointer; }
+    .manual-tip-curr.active { background: #000; color: #55efc4; }
+    .manual-tip-cancel { background:none; border:none; color:#666; margin-top:12px; cursor:pointer; font-weight:800; }
+
+    @media print {
+        @page { size: 80mm auto; margin: 5mm 4mm; }
+        body { margin: 0; background: #fff; display: block; }
+        body * { visibility: hidden !important; }
+        #shiftOverlay, #shiftPrintArea, #shiftPrintArea * { visibility: visible !important; }
+        #shiftOverlay { position: static !important; display: block !important; background: transparent !important; backdrop-filter: none !important; width: auto !important; height: auto !important; }
+        .shift-box { box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; width: 80mm !important; max-height: none !important; overflow: visible !important; }
+        #shiftPrintArea { position: absolute; left: 2mm; top: 2mm; width: 72mm !important; padding: 0; }
+        .shift-actions, .shift-close-x { display: none !important; }
+    }
+    
+    .pay-currency-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .pay-curr-btn { flex: 1; padding: 10px 6px; border: 2px solid #2d3436; border-radius: 12px; background: #ffffff; color: #111820; font-weight: 800; cursor: pointer; }
+    .pay-curr-btn.active { border-color: #55efc4; background: #000000; color: #ffffff; }
+    
+    .split-row { display: flex; gap: 10px; align-items: center; margin-bottom: 15px; text-align: left; }
+    .split-row label { flex: 1; font-weight: bold; font-size: 12px; }
+    .split-row input, .split-row select { flex: 2; padding: 8px; font-size: 16px; }
+    .split-pay-block { background: #1f272b; border: 2px solid #465257; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: left; }
+    .split-pay-title { font-weight: 900; font-size: 13px; color: #ffffff; margin-bottom: 8px; text-transform: uppercase; }
+    .split-currency-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
+    .split-curr-btn { padding: 8px 4px; border: 2px solid #55efc4; border-radius: 10px; background: #2d3436; color: #ffffff; font-weight: 900; cursor: pointer; font-size: 12px; }
+    .split-curr-btn.active { border-color: #55efc4; background: #000000; color: #fff; }
+    .split-pay-input { width: 100%; padding: 10px; border: 3px solid #55efc4; border-radius: 10px; font-size: 20px; font-weight: 900; box-sizing: border-box; background: #111820; color: #ffffff; caret-color: #55efc4; }
+    .split-pay-input::placeholder { color: #9fb0b7; opacity: 1; }
+    .split-pay-input:focus { border-color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.2); }
+    .split-summary { background: #2d3436; color: #fff; padding: 12px; border-radius: 12px; margin-top: 12px; text-align: left; }
+    .split-summary-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
+    .split-change-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
+    .split-change-cell { background: #3d4446; border: 2px solid transparent; border-radius: 8px; padding: 8px 4px; text-align: center; font-size: 11px; cursor: pointer; color: #fff; }
+    .split-change-cell.active { background: #000; border-color: #55efc4; }
+    .split-change-cell b { display: block; color: #55efc4; font-size: 14px; }
+    .split-tip-toggle { width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 2px solid #555; background: #444; color: #bbb; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; }
+    .split-tip-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
+    .split-tip-toggle.active { background: #00ADB5; border-color: #00ADB5; color: #1f1f1f; }
+    .split-remaining { background: #1f272b; border: 2px solid #465257; border-radius: 12px; padding: 10px; margin-bottom: 12px; text-align: left; }
+    .split-remaining-title { display: flex; justify-content: space-between; gap: 10px; color: #ffffff; font-size: 12px; font-weight: 900; margin-bottom: 8px; text-transform: uppercase; }
+    .split-remaining-title b { color: #00a878; white-space: nowrap; }
+    .split-remaining-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .split-remaining-cell { background: #2d3436; border: 2px solid #55efc4; border-radius: 8px; padding: 8px 4px; color: #ffffff; cursor: pointer; font-size: 11px; font-weight: 900; text-align: center; }
+    .split-remaining-cell:hover { border-color: #55efc4; }
+    .split-remaining-cell b { display: block; color: #00a878; font-size: 14px; margin-top: 2px; }
+
+    .rate-setup-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 12px; border: 1px solid #dee2e6; }
+    .rate-setup-row label { font-weight: 900; font-size: 18px; }
+    .rate-setup-row input { width: 60%; font-size: 20px; text-align: center; padding: 8px; border: 2px solid #55efc4; border-radius: 10px; background: #111820; color: #ffffff; }
+
+    /* Анимация появления списков */
+/* Плавное появление контента */
+#historyList, #trash-list {
+    transition: all 0.3s ease;
+}
+
+@keyframes slideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.history-item, .trash-item {
+    animation: slideIn 0.3s ease forwards;
+}
+
+body.silent-refresh .history-item,
+body.silent-refresh .trash-item {
+    animation: none !important;
+}
+
+/* Красивая подсветка активной вкладки */
+.tab.active {
+    border-bottom: 3px solid #55efc4 !important;
+    color: #55efc4 !important;
+    background: rgba(85, 239, 196, 0.1);
+}
+</style>
+</head>
+<body>
+<div id="loginOverlay">
+    <div class="login-shell">
+        <div class="login-box">
+            <h2>Вход в смену 👤</h2>
+            <div class="login-section">
+                <div class="login-section-title">Администраторы</div>
+                <div class="login-grid" id="adminLoginGrid"></div>
+            </div>
+            <div class="login-section">
+                <div class="login-section-title">Кассиры</div>
+                <div class="login-grid" id="cashierLoginGrid"></div>
+                <div class="login-note">Первый вход: кассир указывает имя и пароль</div>
+            </div>
+            <button class="login-btn dev" onclick="loginDeveloper()">Разработка</button>
+        </div>
+
+        <div class="connection-card">
+            <div class="connection-title">Подключение</div>
+            <div class="connection-subtitle">Настраивается перед входом в смену</div>
+
+            <div id="appVersionBadge" class="app-version-badge">Версия: проверяется...</div>
+
+            <div class="connection-field">
+                <label for="networkMode">Режим</label>
+                <select id="networkMode" onchange="onNetworkModeChange()">
+                    <option value="local">Этот ПК отдельно</option>
+                    <option value="host">Главный ПК</option>
+                    <option value="client">Второй ПК</option>
+                </select>
+            </div>
+
+            <div class="connection-row">
+                <div class="connection-field">
+                    <label for="networkHost">IP главного ПК</label>
+                    <input id="networkHost" type="text" placeholder="192.168.0.15" autocomplete="off">
+                </div>
+                <div class="connection-field">
+                    <label for="networkPort">Порт</label>
+                    <input id="networkPort" type="number" value="9260" min="1" max="65535">
+                </div>
+            </div>
+
+            <div class="connection-field">
+                <label for="updateSource">Источник обновлений</label>
+                <select id="updateSource" onchange="onNetworkModeChange()">
+                    <option value="lan">Главный ПК / LAN</option>
+                    <option value="github">GitHub репозиторий</option>
+                </select>
+            </div>
+
+            <div id="githubSettings" style="display:none;">
+                <div class="connection-row">
+                    <div class="connection-field">
+                        <label for="githubOwner">GitHub owner</label>
+                        <input id="githubOwner" type="text" placeholder="ваш логин или организация" autocomplete="off">
+                    </div>
+                    <div class="connection-field">
+                        <label for="githubRepo">Repo</label>
+                        <input id="githubRepo" type="text" placeholder="FX_App" autocomplete="off">
+                    </div>
+                </div>
+                <div class="connection-field">
+                    <label for="githubBranch">Ветка</label>
+                    <input id="githubBranch" type="text" value="main" placeholder="main" autocomplete="off">
+                </div>
+            </div>
+
+            <div class="connection-actions">
+                <button type="button" class="connection-btn primary" onclick="saveNetworkSettings()">СОХРАНИТЬ</button>
+                <button type="button" class="connection-btn" onclick="testNetworkConnection()">ПРОВЕРИТЬ</button>
+            </div>
+            <button type="button" class="connection-btn find" onclick="findNetworkHosts()">НАЙТИ ПК В СЕТИ</button>
+            <button type="button" class="connection-btn find" id="checkUpdateBtn" onclick="checkAppUpdate()" style="display:none;">ПРОВЕРИТЬ ОБНОВЛЕНИЕ</button>
+            <button type="button" class="connection-btn primary" id="installUpdateBtn" onclick="installAppUpdate()" style="display:none; width:100%; margin-top:8px;">ОБНОВИТЬ С ГЛАВНОГО ПК</button>
+
+            <div id="networkStatus" class="connection-status">Загрузка настроек...</div>
+            <div id="updateStatus" class="update-status"></div>
+            <div id="networkFoundList" class="connection-found"></div>
+        </div>
+    </div>
+</div>
+
+<div id="appPromptOverlay">
+    <form class="app-prompt-box" onsubmit="submitAppPrompt(event)">
+        <h3 id="appPromptTitle">Ввод</h3>
+        <p id="appPromptMessage"></p>
+        <input id="appPromptInput" autocomplete="off">
+        <div class="app-prompt-actions">
+            <button type="button" class="app-prompt-cancel" onclick="cancelAppPrompt()">Отмена</button>
+            <button type="submit" class="app-prompt-ok" id="appPromptOk">OK</button>
+        </div>
+    </form>
+</div>
+
+<div id="ratesOverlay">
+    <div class="login-box" style="width: 380px;">
+        <h2>Курсы валют 📈</h2>
+        <p style="font-size: 12px; color: #666; margin-bottom: 20px;">Установите актуальные курсы для начала работы</p>
+        
+        <div class="rate-setup-row">
+            <label>₽ RUB</label>
+            <input type="number" id="setupRUB" value="3.7" step="0.1">
+        </div>
+        <div class="rate-setup-row">
+            <label>$ USD</label>
+            <input type="number" id="setupUSD" value="320">
+        </div>
+        <div class="rate-setup-row">
+            <label>€ EUR</label>
+            <input type="number" id="setupEUR" value="360">
+        </div>
+
+        <button onclick="startShift()" class="save-btn" style="background: #4a76c5; box-shadow: 0 4px 0 #355894;">ОТКРЫТЬ СМЕНУ</button>
+    </div>
+</div>
+
+<div id="splitOverlay">
+    <div class="login-box" style="width: 380px;">
+        <h3>Раздельная оплата 🌓</h3>
+        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Всего к оплате: <b id="splitTotalLabel">0</b> ֏</p>
+
+        <div class="split-pay-block">
+            <div class="split-pay-title">Оплата 1</div>
+            <input type="hidden" id="splitCurr1" value="AMD">
+            <div class="split-currency-row">
+                <button type="button" class="split-curr-btn" id="split1-RUB" onclick="setSplitCurrency(1, 'RUB')">₽ RUB</button>
+                <button type="button" class="split-curr-btn" id="split1-USD" onclick="setSplitCurrency(1, 'USD')">$ USD</button>
+                <button type="button" class="split-curr-btn" id="split1-EUR" onclick="setSplitCurrency(1, 'EUR')">€ EUR</button>
+                <button type="button" class="split-curr-btn active" id="split1-AMD" onclick="setSplitCurrency(1, 'AMD')">֏ AMD</button>
+            </div>
+            <input type="number" id="splitVal1" class="split-pay-input" placeholder="0" oninput="calcSplit()" onfocus="this.select()">
+        </div>
+
+        <div class="split-remaining">
+            <div class="split-remaining-title">
+                <span>Осталось доплатить</span>
+                <b id="splitRemainingAmd">0 ֏</b>
+            </div>
+            <div class="split-remaining-grid">
+                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('RUB')">RUB <b id="split-rem-RUB">0</b></button>
+                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('USD')">USD <b id="split-rem-USD">0</b></button>
+                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('EUR')">EUR <b id="split-rem-EUR">0</b></button>
+                <button type="button" class="split-remaining-cell" onclick="applySplitRemainder('AMD')">AMD <b id="split-rem-AMD">0</b></button>
+            </div>
+        </div>
+
+        <div class="split-pay-block">
+            <div class="split-pay-title">Оплата 2</div>
+            <input type="hidden" id="splitCurr2" value="RUB">
+            <div class="split-currency-row">
+                <button type="button" class="split-curr-btn active" id="split2-RUB" onclick="setSplitCurrency(2, 'RUB')">₽ RUB</button>
+                <button type="button" class="split-curr-btn" id="split2-USD" onclick="setSplitCurrency(2, 'USD')">$ USD</button>
+                <button type="button" class="split-curr-btn" id="split2-EUR" onclick="setSplitCurrency(2, 'EUR')">€ EUR</button>
+                <button type="button" class="split-curr-btn" id="split2-AMD" onclick="setSplitCurrency(2, 'AMD')">֏ AMD</button>
+            </div>
+            <input type="number" id="splitVal2" class="split-pay-input" placeholder="0" oninput="calcSplit()" onfocus="this.select()">
+        </div>
+
+        <div class="split-summary">
+            <div class="split-summary-row"><span>Получено:</span><b id="splitReceivedAmd">0 ֏</b></div>
+            <div class="split-summary-row"><span>Разница:</span><b id="splitDiffAmd">0 ֏</b></div>
+            <div class="split-change-grid">
+                <button type="button" class="split-change-cell" id="split-change-RUB" onclick="setSplitChangeCurrency('RUB')">RUB <b id="split-v-RUB">0</b></button>
+                <button type="button" class="split-change-cell active" id="split-change-USD" onclick="setSplitChangeCurrency('USD')">USD <b id="split-v-USD">0</b></button>
+                <button type="button" class="split-change-cell" id="split-change-EUR" onclick="setSplitChangeCurrency('EUR')">EUR <b id="split-v-EUR">0</b></button>
+                <button type="button" class="split-change-cell" id="split-change-AMD" onclick="setSplitChangeCurrency('AMD')">AMD <b id="split-v-AMD">0</b></button>
+            </div>
+            <div class="split-summary-row" style="margin-top:8px;"><span>Сдача выбрана:</span><b><span id="splitSelectedChange">0</span> <span id="splitSelectedChangeCurr">USD</span></b></div>
+            <button type="button" id="splitTipToggler" class="split-tip-toggle" onclick="toggleSplitTipMode()" disabled>Остаток на чай</button>
+        </div>
+
+        <button onclick="saveSplitPayment()" class="save-btn">СОХРАНИТЬ РАЗДЕЛ</button>
+        <button onclick="closeSplitOverlay()" style="background:none; border:none; color:#888; margin-top:15px; cursor:pointer;">Отмена</button>
+    </div>
+</div>
+
+<div id="manualTipOverlay">
+    <div class="manual-tip-box">
+        <h3>Добавить TIP</h3>
+        <input type="hidden" id="manualTipCurr" value="USD">
+        <div class="manual-tip-row">
+            <button type="button" class="manual-tip-curr" id="manual-tip-RUB" onclick="setManualTipCurrency('RUB')">₽ RUB</button>
+            <button type="button" class="manual-tip-curr active" id="manual-tip-USD" onclick="setManualTipCurrency('USD')">$ USD</button>
+            <button type="button" class="manual-tip-curr" id="manual-tip-EUR" onclick="setManualTipCurrency('EUR')">€ EUR</button>
+        </div>
+        <input type="number" id="manualTipAmount" placeholder="0" onfocus="this.select()">
+        <button type="button" class="save-btn" onclick="saveManualTip()">СОХРАНИТЬ TIP</button>
+        <button type="button" class="manual-tip-cancel" onclick="closeManualTip()">Отмена</button>
+    </div>
+</div>
+
+<div id="shiftOverlay">
+    <div class="shift-box">
+        <button class="shift-close-x" onclick="closeShiftOverlay()">×</button>
+        <div id="shiftPrintArea" class="shift-report"></div>
+        <div class="shift-actions">
+            <button type="button" class="shift-action-btn shift-print-btn" onclick="printShiftReport()">ПРИНТ</button>
+            <button type="button" id="shiftFinishBtn" class="shift-action-btn shift-danger-btn" onclick="finishShift()">ЗАКРЫТЬ</button>
+        </div>
+    </div>
+</div>
+
+<div class="wrapper" id="mainWrapper">
+    <div class="calc-container">
+        <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
+
+        <div class="rates-header">
+            <div class="rate-item"><label>₽</label><input type="number" id="rRUB" value="4.2" oninput="calculate()"></div>
+            <div class="rate-item"><label>$</label><input type="number" id="rUSD" value="395" oninput="calculate()"></div>
+            <div class="rate-item"><label>€</label><input type="number" id="rEUR" value="420" oninput="calculate()"></div>
+        </div>
+
+        <div class="card">
+            <label class="field-label">СУММА В ДРАМАХ (AMD)</label>
+            <input type="number" id="priceAMD" placeholder="0" oninput="calculate()" onfocus="this.select()">
+
+            <input type="hidden" id="currType" value="USD">
+            <div class="price-display">
+                <div class="price-grid">
+                    <button type="button" class="price-curr-btn" id="price-pay-RUB" onclick="setPayCurrency('RUB')">
+                        <span class="price-cell-label">₽ RUB</span>
+                        <span class="price-cell-value" id="dueRUB">0</span>
+                        <span class="price-cell-exact">Без округления: <span id="dueRUBExact">0.00</span></span>
+                    </button>
+                    <button type="button" class="price-curr-btn active" id="price-pay-USD" onclick="setPayCurrency('USD')">
+                        <span class="price-cell-label">$ USD</span>
+                        <span class="price-cell-value" id="dueUSD">0</span>
+                        <span class="price-cell-exact">Без округления: <span id="dueUSDExact">0.00</span></span>
+                    </button>
+                    <button type="button" class="price-curr-btn" id="price-pay-EUR" onclick="setPayCurrency('EUR')">
+                        <span class="price-cell-label">€ EUR</span>
+                        <span class="price-cell-value" id="dueEUR">0</span>
+                        <span class="price-cell-exact">Без округления: <span id="dueEURExact">0.00</span></span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="total-panel total-box inline-total-panel">
+                <div id="total-bills-box">
+                    <div class="total-row">RUB: <span class="curr-line" id="sumRUB">0</span> | USD: <span class="curr-line" id="sumUSD">0</span></div>
+                    <div class="total-row">EUR: <span class="curr-line" id="sumEUR">0</span> | AMD: <span class="curr-line" id="sumAMD">0</span></div>
+                    <div style="border-top:1px solid #555; margin:8px 0; padding-top:8px;">
+                        <div class="total-row" id="tableTotalsLine" style="font-size:10px; color:#bbb; flex-wrap:wrap; gap:4px;">
+                            <span>СУММА СТОЛОВ: <b id="totalBillsAMD">0 ֏</b></span>
+                            <span class="manager-only-total">КАССИР: <b id="totalBillsCashierAMD">0 ֏</b></span>
+                            <span class="manager-only-total">МЕНЕДЖЕР: <b id="totalBillsManagerAMD">0 ֏</b></span>
+                        </div>
+                        <div class="total-row" style="margin-top:5px;">В КАССЕ + TIP: <b id="totalWithTip" style="color:#55efc4; font-size:17px;">0 ֏</b></div>
+                        <div class="total-row" style="font-size:11px; color:#ff7675;">НЕДОПЛАТА: <span id="totalShortage" style="font-weight:bold;">0 ֏</span></div>
+                        <div class="total-row" style="font-size:11px; border-top:1px dashed #555; padding-top:5px; margin-top:5px;">РАЗНИЦА: <span id="finalDiff" style="font-weight:bold;">0 ֏</span></div>
+                    </div>
+                </div>
+                <div id="total-tips-box" style="display:none;">
+                    <div class="total-row">RUB: <span class="curr-line" id="tipRUB">0</span> | USD: <span class="curr-line" id="tipUSD">0</span></div>
+                    <div class="total-row">EUR: <span class="curr-line" id="tipEUR">0</span> | AMD: <span class="curr-line" id="tipAMD">0</span></div>
+                    <div style="border-top:1px solid #555; margin:8px 0; padding-top:8px;">
+                        <div class="total-row manager-only-total" id="tableTotalsLineTips" style="font-size:10px; color:#bbb; flex-wrap:wrap; gap:4px;">
+                            <span>СУММА СТОЛОВ: <b id="tipTabTotalBillsAMD">0 ֏</b></span>
+                            <span>КАССИР: <b id="tipTabTotalBillsCashierAMD">0 ֏</b></span>
+                            <span>МЕНЕДЖЕР: <b id="tipTabTotalBillsManagerAMD">0 ֏</b></span>
+                        </div>
+                        <div class="total-row">ВСЕГО ЧАЕВЫХ: <b id="tipTotalAMD" style="color:#00ADB5; font-size:17px;">0 ֏</b></div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="margin-top: 15px;">
+                <label class="field-label">СУММА</label>
+                <input type="number" id="given" placeholder="0" oninput="calculate()" onfocus="this.select()">
+            </div>
+
+            <div class="change-with-actions">
+                <div class="change-side-actions">
+                    <button type="button" class="change-side-action split-side" onclick="openSplit()" title="Разделить оплату">◐</button>
+                    <button type="button" class="change-side-action tip-side" onclick="openManualTip()" title="Добавить TIP">TIP</button>
+                </div>
+                <div class="change-container">
+                    <div class="change-grid">
+                        <div class="change-btn" id="btn-RUB" onclick="setChangeCurr('RUB')"><span>RUB</span><b id="v-RUB">0</b></div>
+                        <div class="change-btn active" id="btn-USD" onclick="setChangeCurr('USD')"><span>USD</span><b id="v-USD">0</b></div>
+                        <div class="change-btn" id="btn-EUR" onclick="setChangeCurr('EUR')"><span>EUR</span><b id="v-EUR">0</b></div>
+                        <div class="change-btn" id="btn-AMD" onclick="setChangeCurr('AMD')"><span>AMD</span><b id="v-AMD">0</b></div>
+                    </div>
+                    <div class="change-display">
+                        <div class="change-result">
+                            <span id="resRounded" class="change-big">0</span>
+                            <div style="font-size:12px; color:#888; text-align:left;">Сдача/Разница в <span id="targetLabel">USD</span></div>
+                        </div>
+                        <button id="tipToggler" class="tip-toggle" onclick="toggleTipMode()">Остаток на чай</button>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="save-btn" onclick="processSave()">➕ СОХРАНИТЬ ЧЕК</button>
+            <button type="button" id="closeShiftOpenBtn" class="shift-open-btn" onclick="openShiftReport()">ЗАКРЫТЬ СМЕНУ</button>
+            <button type="button" id="devCleanHistoryBtn" class="dev-clean-btn" onclick="clearDeveloperHistory()">ОЧИСТИТЬ ТЕСТЫ</button>
+            <button type="button" id="devClearCommonHistoryBtn" class="dev-clean-btn dev-common-history-btn" onclick="clearCommonHistory()">ОЧИСТИТЬ ОБЩУЮ ИСТОРИЮ</button>
+        </div>
+    </div>
+
+    <div class="history-container">
+        <div class="tabs">
+    <div class="tab active" onclick="handleTabClick('bills', this)">ОПЕРАЦИИ</div>
+    <div class="tab" onclick="handleTabClick('tips', this)">TIP</div>
+    <div class="tab" onclick="handleTabClick('history', this)">ИСТОРИЯ</div>
+    <div class="tab" onclick="handleTabClick('trash', this)">КОРЗИНА</div>
+    <div class="tab manager-only-shift-tab" onclick="handleTabClick('shifts', this)">СМЕНЫ</div>
+</div>
+
+        <div class="search-box">
+            <input type="text" id="historySearch" class="search-input" placeholder="Поиск по сумме, времени, дате или оператору..." oninput="renderCurrentList()">
+            <span class="search-icon">🔍</span>
+        </div>
+        <div class="history-tools">
+            <div id="currencyFilterRow" class="currency-filter-row">
+                <button type="button" class="filter-btn active" id="filter-ALL" onclick="setHistoryCurrencyFilter('ALL')">ALL</button>
+                <button type="button" class="filter-btn" id="filter-RUB" onclick="setHistoryCurrencyFilter('RUB')">RUB</button>
+                <button type="button" class="filter-btn" id="filter-USD" onclick="setHistoryCurrencyFilter('USD')">USD</button>
+                <button type="button" class="filter-btn" id="filter-EUR" onclick="setHistoryCurrencyFilter('EUR')">EUR</button>
+                <button type="button" class="filter-btn" id="filter-AMD" onclick="setHistoryCurrencyFilter('AMD')">AMD</button>
+            </div>
+        </div>
+
+        <div id="history-content-wrapper">
+            <div id="history-view">
+                <div id="historyList" class="history-list"></div>
+            </div>
+            <div id="trash-view" style="display: none;">
+                <div id="trash-list" class="history-list"></div>
+            </div>
+            <div id="shift-view" style="display: none;">
+                <button type="button" id="weekPrintBtn" class="week-print-btn" onclick="openWeeklyReportPrint()">ПЕЧАТЬ НЕДЕЛЬНОГО ОТЧЕТА</button>
+                <button type="button" id="weekClearBtn" class="week-clear-btn" onclick="clearCurrentWeekHistory()">ОЧИСТИТЬ НЕДЕЛЬНЫЙ ОТЧЕТ</button>
+                <div id="shiftArchiveList" class="history-list"></div>
+                <div id="weeklyShiftReport" class="week-report-box"></div>
+            </div>
+        </div>
+        <div id="sideTotalMount"></div>
+    </div>
+</div>
+
+<script>
+function moveTotalPanelToSide() {
+    const panel = document.querySelector('.total-panel.total-box');
+    const mount = document.getElementById('sideTotalMount');
+    if (!panel || !mount) return;
+    panel.classList.remove('inline-total-panel');
+    if (panel.parentElement !== mount) mount.appendChild(panel);
+}
+
+function calculate() {
+    const priceAMD = parseFloat(document.getElementById('priceAMD').value) || 0;
+    const rates = {
+        RUB: parseFloat(document.getElementById('rRUB').value) || 1,
+        USD: parseFloat(document.getElementById('rUSD').value) || 1,
+        EUR: parseFloat(document.getElementById('rEUR').value) || 1
+    };
+    const payCurr = document.getElementById('currType').value;
+    const rate = rates[payCurr] || 1;
+
+    // Расчет суммы к оплате в выбранной валюте
+    const exact = priceAMD / rate;
+    let rounded = (payCurr === 'RUB') ? Math.ceil(exact / 50) * 50 : Math.ceil(exact);
+
+    const exactValues = {
+        RUB: rates.RUB ? (priceAMD / rates.RUB) : 0,
+        USD: rates.USD ? (priceAMD / rates.USD) : 0,
+        EUR: rates.EUR ? (priceAMD / rates.EUR) : 0
+    };
+    const dueValues = {
+        RUB: Math.ceil(exactValues.RUB / 50) * 50,
+        USD: Math.ceil(exactValues.USD),
+        EUR: Math.ceil(exactValues.EUR)
+    };
+
+    // Вывод на экран (проверьте ID в вашем HTML)
+    if(document.getElementById('priceInCurr')) document.getElementById('priceInCurr').innerText = rounded;
+    if(document.getElementById('priceExactVal')) document.getElementById('priceExactVal').innerText = exact.toFixed(2);
+    if(document.getElementById('currLabel1')) document.getElementById('currLabel1').innerText = payCurr;
+    if(document.getElementById('currLabel2')) document.getElementById('currLabel2').innerText = payCurr;
+    if(document.getElementById('dueRUB')) document.getElementById('dueRUB').innerText = Math.max(0, dueValues.RUB).toLocaleString();
+    if(document.getElementById('dueUSD')) document.getElementById('dueUSD').innerText = Math.max(0, dueValues.USD).toLocaleString();
+    if(document.getElementById('dueEUR')) document.getElementById('dueEUR').innerText = Math.max(0, dueValues.EUR).toLocaleString();
+    if(document.getElementById('dueRUBExact')) document.getElementById('dueRUBExact').innerText = Math.max(0, exactValues.RUB).toFixed(2) + ' RUB';
+    if(document.getElementById('dueUSDExact')) document.getElementById('dueUSDExact').innerText = Math.max(0, exactValues.USD).toFixed(2) + ' USD';
+    if(document.getElementById('dueEURExact')) document.getElementById('dueEURExact').innerText = Math.max(0, exactValues.EUR).toFixed(2) + ' EUR';
+    document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${payCurr}`));
+    
+    // Обновляем превью сдачи и итоги
+    calculateChangePreview();
+    updateTotals(); 
+}
+
+function setPayCurrency(curr) {
+    document.getElementById('currType').value = curr;
+    document.querySelectorAll('.pay-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `pay-${curr}`));
+    document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${curr}`));
+    setChangeCurr(curr);
+    calculate();
+}
+
+function setChangeCurr(curr) {
+    changeCurrency = curr;
+    document.querySelectorAll('.change-btn').forEach(btn => btn.classList.toggle('active', btn.id === `btn-${curr}`));
+    if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = curr;
+    calculateChangePreview();
+}
+
+function roundChangeInOurFavor(rawChange, curr) {
+    if (!isFinite(rawChange)) return 0;
+    if (rawChange <= 0) return Math.floor(rawChange);
+    if (curr === 'RUB') return Math.floor(rawChange / 50) * 50;
+    return Math.floor(rawChange);
+}
+
+function roundDueInOurFavor(rawDue, curr) {
+    if (!isFinite(rawDue) || rawDue <= 0) return 0;
+    if (curr === 'RUB') return Math.ceil(rawDue / 50) * 50;
+    return Math.ceil(rawDue);
+}
+
+function calculateChangePreview() {
+    const priceAMD = parseFloat(document.getElementById('priceAMD').value) || 0;
+    const givenVal = parseFloat(document.getElementById('given').value) || 0;
+    const payCurr = document.getElementById('currType').value;
+    const rates = {
+        RUB: parseFloat(document.getElementById('rRUB').value) || 0,
+        USD: parseFloat(document.getElementById('rUSD').value) || 0,
+        EUR: parseFloat(document.getElementById('rEUR').value) || 0,
+        AMD: 1
+    };
+    const rate = rates[payCurr] || 1;
+    const exactInCurr = rate !== 0 ? priceAMD / rate : 0;
+    const roundedInCurr = (payCurr === 'RUB') ? Math.ceil(exactInCurr / 50) * 50 : Math.ceil(exactInCurr);
+    const payRoundAMD = roundedInCurr * rate;
+    const givenAMD = givenVal * (rates[payCurr] || 0);
+    const diffAMD = givenAMD - payRoundAMD;
+
+    // Считаем сдачу во всех валютах
+    const changes = {};
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        const changeRate = rates[curr] || 1;
+        const rawChange = changeRate !== 0 ? diffAMD / changeRate : 0;
+        let displayChange = 0;
+        if (diffAMD > 0) {
+            displayChange = roundChangeInOurFavor(rawChange, curr);
+            displayChange = Math.max(0, displayChange);
+        }
+        changes[curr] = isFinite(displayChange) ? displayChange : 0;
+        const el = document.getElementById(`v-${curr}`);
+        if (el) el.innerText = changes[curr];
+    });
+
+    // Показываем выбранную валюту сдачи
+    const selectedChange = changes[changeCurrency] || 0;
+    if (document.getElementById('resRounded')) document.getElementById('resRounded').innerText = selectedChange;
+    if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = changeCurrency;
+}
+
+function readLocalList(key) {
+    try { return sortNewestFirst(JSON.parse(localStorage.getItem(key) || '[]')); }
+    catch { return []; }
+}
+
+function writeLocalList(key, value) {
+    localStorage.setItem(key, JSON.stringify(sortNewestFirst(value)));
+}
+
+function upsertLocal(list, item) {
+    return sortNewestFirst([item, ...list.filter(i => Number(i.id) !== Number(item.id))]);
+}
+
+function parseRuDateTime(date = '', time = '') {
+    const dateMatch = String(date || '').match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (!dateMatch) return 0;
+    const timeMatch = String(time || '').match(/^(\d{1,2}):(\d{1,2})/);
+    const day = Number(dateMatch[1]);
+    const month = Number(dateMatch[2]) - 1;
+    const year = Number(dateMatch[3]);
+    const hour = timeMatch ? Number(timeMatch[1]) : 0;
+    const minute = timeMatch ? Number(timeMatch[2]) : 0;
+    const value = new Date(year, month, day, hour, minute).getTime();
+    return Number.isFinite(value) ? value : 0;
+}
+
+function newestSortValue(item) {
+    if (!item || typeof item !== 'object') return 0;
+    const id = Number(item.id);
+    if (Number.isFinite(id) && id > 0) return id;
+    const createdAt = Date.parse(item.createdAt || item.updatedAt || '');
+    if (Number.isFinite(createdAt)) return createdAt;
+    return parseRuDateTime(item.date, item.time || item.deletedAt);
+}
+
+function sortNewestFirst(value) {
+    if (!Array.isArray(value)) return value;
+    return [...value].sort((a, b) => newestSortValue(b) - newestSortValue(a));
+}
+
+function tipMatchesBill(tip, bill) {
+    if (!tip || !bill) return false;
+    const billId = Number(bill.id);
+    return Number(tip.billId) === billId
+        || Number(tip.sourceBillId) === billId
+        || Number(tip.id) === Number(bill.tipId)
+        || Number(tip.id) === billId + 1
+        || (
+            Number(tip.val) === Number(bill.tipAmount)
+            && String(tip.curr || '') === String(bill.tipCurr || '')
+            && String(tip.user || '') === String(bill.user || '')
+            && String(tip.date || '') === String(bill.date || '')
+            && String(tip.time || '') === String(bill.time || '')
+        );
+}
+
+function rateForCurrency(curr) {
+    if (curr === 'AMD') return 1;
+    const el = document.getElementById(`r${curr}`);
+    return parseFloat(el?.value) || 1;
+}
+
+function buildTipFromBill(bill, status = '') {
+    if (!bill || !(Number(bill.tipAmount) > 0)) return null;
+    const curr = bill.tipCurr || bill.changeCurr || 'AMD';
+    return {
+        id: Number(bill.tipId) || Number(bill.id) + 1,
+        billId: Number(bill.id),
+        sourceBillId: Number(bill.id),
+        date: bill.date || new Date().toLocaleDateString('ru-RU'),
+        time: bill.time || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        val: Number(bill.tipAmount) || 0,
+        curr,
+        amd: Number(bill.tipAMD) || ((Number(bill.tipAmount) || 0) * rateForCurrency(curr)),
+        user: bill.user || currentOperator,
+        status
+    };
+}
+
+function removeTipsForBill(bill) {
+    const tips = readLocalList(DB_TIPS);
+    const filtered = tips.filter(tip => !tipMatchesBill(tip, bill));
+    writeLocalList(DB_TIPS, filtered);
+    writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(tip => !tipMatchesBill(tip, bill)));
+    return tips.length - filtered.length;
+}
+
+function restoreTipForBill(bill) {
+    const tipEntry = buildTipFromBill(bill, 'Восстановлено');
+    if (!tipEntry) return;
+    writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
+    writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
+    ipcRenderer.send('save-tip', tipEntry);
+}
+
+function weekKeyForDate(input = new Date()) {
+    const date = new Date(input);
+    if (Number.isNaN(date.getTime())) return '';
+    const yearStart = new Date(date.getFullYear(), 0, 1);
+    const dayOffset = Math.floor((date - yearStart) / 86400000);
+    const week = Math.ceil((dayOffset + yearStart.getDay() + 1) / 7);
+    return `${date.getFullYear()}-W${String(week).padStart(2, '0')}`;
+}
+
+function uniqueNames(names) {
+    return Array.from(new Set((Array.isArray(names) ? names : [])
+        .map(name => String(name || '').trim())
+        .filter(Boolean)));
+}
+
+function roleForShiftName(name, fallbackRole = '') {
+    const cleanName = String(name || '').trim();
+    if (!cleanName) return '';
+    if (cleanName === currentOperator && currentRole) return currentRole;
+    if (cleanName === 'Разработка') return 'developer';
+
+    const store = getAuthStore();
+    if (Object.values(store.admins || {}).some(account => String(account?.name || '') === cleanName)) return 'admin';
+    if (Object.values(store.cashiers || {}).some(account => String(account?.name || '') === cleanName)) return 'cashier';
+    return fallbackRole || '';
+}
+
+function buildShiftPeople(names, closerName = currentOperator, closerRole = currentRole) {
+    const allNames = uniqueNames([closerName, ...(Array.isArray(names) ? names : [])]);
+    const people = {
+        closedBy: {
+            name: closerName || '',
+            role: closerRole || roleForShiftName(closerName)
+        },
+        admins: [],
+        cashiers: [],
+        developers: [],
+        others: []
+    };
+
+    const pushUnique = (list, name) => {
+        if (name && !list.includes(name)) list.push(name);
+    };
+
+    allNames.forEach(name => {
+        const role = name === closerName
+            ? (closerRole || roleForShiftName(name))
+            : roleForShiftName(name);
+        if (role === 'admin') pushUnique(people.admins, name);
+        else if (role === 'cashier') pushUnique(people.cashiers, name);
+        else if (role === 'developer') pushUnique(people.developers, name);
+        else pushUnique(people.others, name);
+    });
+
+    return people;
+}
+
+function peopleNamesForShift(people, fallbackUsers = '') {
+    const names = uniqueNames([
+        ...(people?.admins || []),
+        ...(people?.cashiers || []),
+        ...(people?.others || []),
+        ...(String(fallbackUsers || '').split(',').map(name => name.trim()))
+    ]).filter(name => roleForShiftName(name) !== 'developer' && name !== 'Разработка');
+    return names.join(', ');
+}
+
+function buildShiftArchiveEntry(user, summary) {
+    const now = new Date();
+    const userName = String(user || currentOperator || '');
+    const closeAll = currentRole === 'admin' || currentRole === 'developer';
+    const belongsToShift = item => closeAll || String(item?.user || '') === userName;
+    const bills = readLocalList(DB_ALL_BILLS).filter(item => belongsToShift(item) && !isDeletedItem(item) && !isClosedShiftItem(item));
+    const tips = readLocalList(DB_ALL_TIPS).filter(item => belongsToShift(item) && !isDeletedItem(item) && !isClosedShiftItem(item));
+    const trash = readLocalList(DB_ALL_TRASH).filter(item => belongsToShift(item));
+    const operators = Array.from(new Set([userName, ...bills.map(item => item.user), ...tips.map(item => item.user), ...trash.map(item => item.user)].filter(Boolean)));
+    const people = buildShiftPeople(operators, userName, currentRole);
+    const date = now.toLocaleDateString('ru-RU');
+    const time = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    return {
+        id: Date.now(),
+        title: `${date} ${operators.join(', ') || userName}`,
+        operator: userName,
+        users: operators.join(', '),
+        people,
+        date,
+        time,
+        weekKey: weekKeyForDate(now),
+        summary: summary || buildShiftSummary(),
+        bills,
+        tips,
+        trash,
+        createdAt: now.toISOString()
+    };
+}
+
+function saveShiftArchiveLocal(shift) {
+    writeLocalList(DB_SHIFT_ARCHIVE, upsertLocal(readLocalList(DB_SHIFT_ARCHIVE), shift));
+}
+
+function createBrowserIpcFallback() {
+    return {
+        send(channel, payload) {
+            if (channel === 'move-to-trash' && payload) {
+                const trashItem = {
+                    ...payload,
+                    deletedAt: payload.deletedAt || new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                    status: payload.status || 'Удалено'
+                };
+                writeLocalList(DB_ALL_TRASH, upsertLocal(readLocalList(DB_ALL_TRASH), trashItem));
+                writeLocalList(DB_TRASH, personalTrashFrom(readLocalList(DB_ALL_TRASH)));
+            }
+            if (channel === 'delete-tip' && payload) {
+                writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(i => Number(i.id) !== Number(payload.id)));
+                writeLocalList(DB_TIPS, readLocalList(DB_TIPS).filter(i => Number(i.id) !== Number(payload.id)));
+            }
+            if (channel === 'save-tip' && payload) {
+                writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), payload));
+                if (String(payload.user || '') === String(currentOperator || '')) {
+                    writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), payload));
+                }
+            }
+        },
+        async invoke(channel, payload) {
+            if (channel === 'get-history-data') {
+                const allBills = readLocalList(DB_ALL_BILLS);
+                const personalBills = readLocalList(DB_BILLS);
+                const clearBefore = Number(localStorage.getItem(DB_HISTORY_CLEAR_BEFORE) || '0');
+                const visiblePersonalBills = personalBills.filter(item => Number(item.id) > clearBefore);
+                const visibleAllBills = allBills.filter(item => Number(item.id) > clearBefore);
+                const merged = visiblePersonalBills.reduce((list, item) => upsertLocal(list, item), visibleAllBills);
+                if (merged.length !== allBills.length) writeLocalList(DB_ALL_BILLS, merged);
+                return merged;
+            }
+            if (channel === 'get-trash-data') {
+                const allTrash = readLocalList(DB_ALL_TRASH);
+                const personalTrash = readLocalList(DB_TRASH);
+                const merged = personalTrash.reduce((list, item) => upsertLocal(list, item), allTrash);
+                if (merged.length !== allTrash.length) writeLocalList(DB_ALL_TRASH, merged);
+                return merged;
+            }
+            if (channel === 'get-user-tips') {
+                const allTips = readLocalList(DB_ALL_TIPS).length ? readLocalList(DB_ALL_TIPS) : readLocalList(DB_TIPS);
+                if (payload?.role === 'admin' || payload?.role === 'developer') {
+                    return allTips.filter(tip => !isDeletedItem(tip) && !isClosedShiftItem(tip));
+                }
+                return allTips.filter(tip => !isDeletedItem(tip) && !isClosedShiftItem(tip) && (!payload?.user || String(tip.user || '') === String(payload.user || '')));
+            }
+            if (channel === 'get-split-payments') return readLocalList(DB_SPLITS);
+
+            if (channel === 'save-bill') {
+                const allBills = upsertLocal(readLocalList(DB_ALL_BILLS), payload);
+                writeLocalList(DB_ALL_BILLS, allBills);
+                writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+                return { ok: true };
+            }
+
+            if (channel === 'delete-bill') {
+                const id = Number(payload?.id);
+                let bills = readLocalList(DB_ALL_BILLS).length ? readLocalList(DB_ALL_BILLS) : readLocalList(DB_BILLS);
+                const item = bills.find(i => Number(i.id) === id) || payload?.item;
+                if (!item) return { ok: false, error: 'Чек не найден в активных операциях' };
+
+                const trashItem = {
+                    ...item,
+                    deletedAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+                    status: 'Удалено'
+                };
+                writeLocalList(DB_ALL_TRASH, upsertLocal(readLocalList(DB_ALL_TRASH), trashItem));
+                removeTipsForBill(item);
+                const markedBills = bills.map(i => Number(i.id) === id ? { ...i, status: 'Удалено', deletedAt: trashItem.deletedAt } : i);
+                writeLocalList(DB_ALL_BILLS, markedBills);
+                writeLocalList(DB_BILLS, personalBillsFrom(markedBills));
+                writeLocalList(DB_TRASH, personalTrashFrom(readLocalList(DB_ALL_TRASH)));
+                return { ok: true, item: trashItem };
+            }
+
+            if (channel === 'save-split-payment') {
+                writeLocalList(DB_SPLITS, upsertLocal(readLocalList(DB_SPLITS), payload));
+                return true;
+            }
+
+            if (channel === 'delete-split-payment') {
+                writeLocalList(DB_SPLITS, readLocalList(DB_SPLITS).filter(i => Number(i.id) !== Number(payload)));
+                return true;
+            }
+
+            if (channel === 'restore-from-trash') {
+                const id = Number(payload?.id);
+                const restored = {
+                    ...payload,
+                    status: 'Восстановлено',
+                    restoredAt: new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+                };
+                delete restored.deletedAt;
+
+                const allTrash = readLocalList(DB_ALL_TRASH).length ? readLocalList(DB_ALL_TRASH) : readLocalList(DB_TRASH);
+                writeLocalList(DB_ALL_TRASH, allTrash.filter(i => Number(i.id) !== id));
+                const allBills = upsertLocal(readLocalList(DB_ALL_BILLS), restored);
+                writeLocalList(DB_ALL_BILLS, allBills);
+                writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+                writeLocalList(DB_TRASH, personalTrashFrom(readLocalList(DB_ALL_TRASH)));
+                restoreTipForBill(restored);
+                return { ok: true };
+            }
+
+            if (channel === 'close-shift') {
+                const user = String(payload?.user || currentOperator || '');
+                if (payload?.role === 'cashier') return { ok: false, error: 'Кассир не может закрывать смену' };
+                const shift = buildShiftArchiveEntry(user, payload?.summary);
+                saveShiftArchiveLocal(shift);
+                const closeAll = payload?.role === 'admin' || payload?.role === 'developer' || payload?.closeAll === true;
+                const belongsToShift = item => closeAll || String(item.user || '') === user;
+                const mergedBills = readLocalList(DB_BILLS).reduce(
+                    (list, item) => upsertLocal(list, item),
+                    readLocalList(DB_ALL_BILLS)
+                );
+                const allBills = mergedBills.filter(item => !belongsToShift(item));
+                writeLocalList(DB_ALL_BILLS, allBills);
+                if (closeAll) {
+                    localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+                    writeLocalList(DB_ALL_BILLS, []);
+                }
+                writeLocalList(DB_BILLS, []);
+                writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(item => !belongsToShift(item)));
+                writeLocalList(DB_TIPS, []);
+                const mergedTrash = readLocalList(DB_TRASH).reduce(
+                    (list, item) => upsertLocal(list, item),
+                    readLocalList(DB_ALL_TRASH)
+                );
+                writeLocalList(DB_ALL_TRASH, mergedTrash.filter(item => !belongsToShift(item)));
+                writeLocalList(DB_TRASH, []);
+                writeLocalList(DB_SPLITS, readLocalList(DB_SPLITS).filter(item => !belongsToShift(item)));
+                return { ok: true, shift };
+            }
+
+            if (channel === 'clear-developer-history') {
+                const user = String(payload?.user || currentOperator || 'Разработка');
+                if (currentRole !== 'developer') return { ok: false, error: 'Доступно только разработчику' };
+                writeLocalList(DB_ALL_BILLS, readLocalList(DB_ALL_BILLS).filter(item => String(item.user || '') !== user));
+                writeLocalList(DB_BILLS, readLocalList(DB_BILLS).filter(item => String(item.user || '') !== user));
+                writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(item => String(item.user || '') !== user));
+                writeLocalList(DB_TIPS, readLocalList(DB_TIPS).filter(item => String(item.user || '') !== user));
+                writeLocalList(DB_ALL_TRASH, []);
+                writeLocalList(DB_TRASH, []);
+                writeLocalList(DB_SPLITS, readLocalList(DB_SPLITS).filter(item => String(item.user || '') !== user));
+                return { ok: true };
+            }
+
+            if (channel === 'clear-common-history') {
+                if (currentRole !== 'developer') return { ok: false, error: 'Доступно только разработчику' };
+                localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+                writeLocalList(DB_ALL_BILLS, []);
+                return { ok: true };
+            }
+
+            if (channel === 'get-shift-archive') {
+                return readLocalList(DB_SHIFT_ARCHIVE);
+            }
+
+            if (channel === 'clear-week-history') {
+                if (payload?.role !== 'developer' && payload?.role !== 'admin') return { ok: false, error: 'Доступно только администратору или разработчику' };
+                const weekKey = payload?.weekKey || weekKeyForDate();
+                const before = readLocalList(DB_SHIFT_ARCHIVE);
+                const after = before.filter(shift => String(shift.weekKey || '') !== String(weekKey));
+                writeLocalList(DB_SHIFT_ARCHIVE, after);
+                return { ok: true, weekKey, removed: before.length - after.length };
+            }
+
+            if (channel === 'get-network-config') {
+                const config = normalizeNetworkConfig(JSON.parse(localStorage.getItem(NETWORK_CONFIG_STORAGE_KEY) || '{}'));
+                return { ok: true, config, status: { config, serverRunning: false, urls: [] } };
+            }
+
+            if (channel === 'get-app-manifest') {
+                return {
+                    ok: true,
+                    manifest: {
+                        app: 'FX_App',
+                        version: 'browser',
+                        fingerprint: 'browser-preview',
+                        generatedAt: new Date().toISOString()
+                    }
+                };
+            }
+
+            if (channel === 'save-network-config') {
+                const config = normalizeNetworkConfig(payload);
+                localStorage.setItem(NETWORK_CONFIG_STORAGE_KEY, JSON.stringify(config));
+                return { ok: true, config, status: { config, serverRunning: config.mode === 'host', urls: [] } };
+            }
+
+            if (channel === 'test-network-connection') {
+                const config = normalizeNetworkConfig(payload);
+                if (config.mode === 'local') return { ok: true, message: 'Локальный режим' };
+                if (config.mode === 'host') return { ok: true, message: 'Главный ПК будет запущен в приложении Electron' };
+                if (!config.host) return { ok: false, message: 'Введите IP главного ПК' };
+                try {
+                    const controller = new AbortController();
+                    const timer = setTimeout(() => controller.abort(), 2200);
+                    const response = await fetch(`http://${config.host}:${config.port}/fx/status`, { signal: controller.signal });
+                    clearTimeout(timer);
+                    return { ok: response.ok, message: response.ok ? 'Связь есть' : 'Нет ответа от главного ПК' };
+                } catch (err) {
+                    return { ok: false, message: 'Нет связи' };
+                }
+            }
+
+            if (channel === 'find-network-hosts') {
+                return { ok: false, error: 'Автопоиск доступен в приложении Electron', found: [] };
+            }
+
+            if (channel === 'print-shift-report') {
+                return { ok: false };
+            }
+
+            if (channel === 'check-app-update') {
+                return { ok: false, error: 'Проверка обновлений доступна в приложении Electron на втором ПК' };
+            }
+
+            if (channel === 'install-app-update') {
+                return { ok: false, error: 'Обновление доступно в приложении Electron на втором ПК' };
+            }
+
+            if (channel === 'restart-app') {
+                location.reload();
+                return { ok: true };
+            }
+
+            return [];
+        }
+    };
+}
+
+const electronRequire = globalThis.require || (typeof require === 'function' ? require : null);
+let electronApi = null;
+try {
+    electronApi = typeof electronRequire === 'function' ? electronRequire('electron') : null;
+} catch {
+    electronApi = null;
+}
+const ipcRenderer = electronApi && electronApi.ipcRenderer
+    ? electronApi.ipcRenderer
+    : createBrowserIpcFallback();
+let currentOperator = "";
+let currentRole = "";
+let currentUserId = "";
+let isAlwaysOnTopMode = false;
+let changeCurrency = "USD";
+let splitChangeCurrency = "USD";
+let isSplitTipMode = false;
+let activeTab = "bills";
+let isTipMode = false;
+let historyCurrencyFilter = "ALL";
+let openedShiftId = null;
+let shiftPrintMode = "shift";
+let lastWeeklyPrintShifts = [];
+let autoSyncTimer = null;
+let autoSyncBusy = false;
+const DB_BILLS = 'fx_bills_v926';
+const DB_TIPS = 'fx_tips_v926';
+const DB_TRASH = 'fx_trash_v926';
+const DB_SPLITS = 'fx_splits_v926';
+const DB_ALL_BILLS = 'fx_all_bills_v926';
+const DB_ALL_TIPS = 'fx_all_tips_v926';
+const DB_ALL_TRASH = 'fx_all_trash_v926';
+const DB_SHIFT_ARCHIVE = 'fx_shift_archive_v926';
+const DB_HISTORY_CLEAR_BEFORE = 'fx_history_clear_before_v926';
+const AUTH_STORAGE_KEY = 'fx_auth_accounts_v1';
+const DEVELOPER_PASSWORD = 'Zilker1056';
+const LEGACY_ADMIN_ACCOUNTS = ['Qnarik', 'Jasmin', 'Lilit', 'Nvard'];
+const ADMIN_SLOT_COUNT = 4;
+const CASHIER_SLOT_COUNT = 4;
+const NETWORK_CONFIG_STORAGE_KEY = 'fx_network_config_v1';
+const DEFAULT_NETWORK_CONFIG = { mode: 'local', host: '', port: 9260, updateSource: 'lan', githubOwner: '', githubRepo: '', githubBranch: 'main' };
+let networkCandidates = [];
+let localAppManifest = null;
+let authStoreCache = { admins: {}, cashiers: {} };
+let authRefreshTimer = null;
+let authRefreshBusy = false;
+let lastRenderedAuthSignature = '';
+
+function roleLabel(role) {
+    if (role === 'admin') return 'Админ';
+    if (role === 'cashier') return 'Кассир';
+    if (role === 'developer') return 'Разработка';
+    return '';
+}
+
+function normalizeAuthStore(store = {}) {
+    const normalizeAdminId = rawId => {
+        const id = String(rawId || '').trim();
+        const legacyIndex = LEGACY_ADMIN_ACCOUNTS.findIndex(name => id === `admin_${name.toLowerCase()}`);
+        return legacyIndex === -1 ? id : `admin_${legacyIndex + 1}`;
+    };
+
+    const normalizeGroup = (group, role) => {
+        const result = {};
+        Object.entries(group || {}).forEach(([rawId, account]) => {
+            const id = role === 'admin'
+                ? normalizeAdminId(account?.id || rawId)
+                : String(account?.id || rawId || '').trim();
+            const name = cleanPersonName(account?.name || '');
+            const passwordHash = String(account?.passwordHash || '').trim();
+            if (!id || !name || !passwordHash) return;
+            result[id] = { id, name, role, passwordHash };
+        });
+        return result;
+    };
+
+    return {
+        admins: normalizeGroup(store.admins, 'admin'),
+        cashiers: normalizeGroup(store.cashiers, 'cashier')
+    };
+}
+
+function getLegacyAuthStore() {
+    try {
+        return normalizeAuthStore(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'));
+    } catch {
+        return { admins: {}, cashiers: {} };
+    }
+}
+
+function authStoreHasAccounts(store = {}) {
+    return Boolean(Object.keys(store.admins || {}).length || Object.keys(store.cashiers || {}).length);
+}
+
+function getAuthStore() {
+    return normalizeAuthStore(authStoreCache);
+}
+
+function authStoreSignature(store = getAuthStore()) {
+    const normalized = normalizeAuthStore(store);
+    return JSON.stringify({
+        admins: normalized.admins,
+        cashiers: normalized.cashiers
+    });
+}
+
+async function refreshAuthStore() {
+    try {
+        const result = await ipcRenderer.invoke('get-auth-store');
+        authStoreCache = normalizeAuthStore(result?.store || {});
+    } catch {
+        const legacyStore = getLegacyAuthStore();
+        if (authStoreHasAccounts(legacyStore) || !authStoreHasAccounts(getAuthStore())) {
+            authStoreCache = legacyStore;
+        }
+    }
+    return getAuthStore();
+}
+
+async function migrateLegacyAuthStoreIfNeeded() {
+    const legacyStore = getLegacyAuthStore();
+    if (!authStoreHasAccounts(legacyStore)) return getAuthStore();
+
+    const currentConfig = collectNetworkConfig();
+    if (normalizeNetworkConfig(currentConfig).mode === 'client') return getAuthStore();
+
+    if (authStoreHasAccounts(getAuthStore())) {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+        return getAuthStore();
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('merge-auth-store', legacyStore);
+        if (result?.ok) {
+            authStoreCache = normalizeAuthStore(result.store || {});
+            localStorage.removeItem(AUTH_STORAGE_KEY);
+            return getAuthStore();
+        }
+    } catch {}
+
+    authStoreCache = legacyStore;
+    return getAuthStore();
+}
+
+function cleanPersonName(name) {
+    return String(name || '')
+        .replace(/[\\/:*?"<>|]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .slice(0, 24);
+}
+
+function escapeHtml(value) {
+    return String(value || '').replace(/[&<>"']/g, char => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[char]));
+}
+
+async function hashPassword(password) {
+    const text = `fx-app:${password}`;
+    if (globalThis.crypto?.subtle && globalThis.TextEncoder) {
+        const bytes = new TextEncoder().encode(text);
+        const hash = await crypto.subtle.digest('SHA-256', bytes);
+        return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    return `fnv:${(hash >>> 0).toString(16)}`;
+}
+
+function isLoginOverlayVisible() {
+    const overlay = document.getElementById('loginOverlay');
+    return Boolean(overlay) && getComputedStyle(overlay).display !== 'none';
+}
+
+function isAppPromptVisible() {
+    const overlay = document.getElementById('appPromptOverlay');
+    return Boolean(overlay) && getComputedStyle(overlay).display !== 'none';
+}
+
+function startLoginAuthRefresh() {
+    if (authRefreshTimer) clearInterval(authRefreshTimer);
+    authRefreshTimer = setInterval(async () => {
+        if (authRefreshBusy || !isLoginOverlayVisible() || isAppPromptVisible()) return;
+        authRefreshBusy = true;
+        try {
+            const before = lastRenderedAuthSignature || authStoreSignature();
+            const store = await refreshAuthStore();
+            const after = authStoreSignature(store);
+            if (after !== before) {
+                await renderLoginScreen();
+            }
+        } catch (err) {
+            console.error('Ошибка автообновления аккаунтов:', err);
+        } finally {
+            authRefreshBusy = false;
+        }
+    }, 2500);
+}
+
+function renderLoginSlot(role, slot, account) {
+    const isCashier = role === 'cashier';
+    const label = account?.name || `${isCashier ? 'Кассир' : 'Админ'} ${slot}`;
+    const clickHandler = isCashier ? `loginCashier(${slot})` : `loginAdmin(${slot})`;
+    const deleteButton = account?.passwordHash
+        ? `<button type="button" class="login-delete-btn${isCashier ? ' cashier' : ''}" title="Удалить аккаунт" onclick="event.stopPropagation(); deleteAuthAccount('${role}', ${slot})">×</button>`
+        : '';
+    return `<div class="login-slot"><button type="button" class="login-btn${isCashier ? ' cashier' : ''}" onclick="${clickHandler}">${escapeHtml(label)}</button>${deleteButton}</div>`;
+}
+
+async function renderLoginScreen() {
+    await refreshAuthStore();
+    const store = getAuthStore();
+    lastRenderedAuthSignature = authStoreSignature(store);
+    const adminGrid = document.getElementById('adminLoginGrid');
+    const cashierGrid = document.getElementById('cashierLoginGrid');
+
+    if (adminGrid) {
+        const buttons = [];
+        for (let i = 1; i <= ADMIN_SLOT_COUNT; i++) {
+            const id = `admin_${i}`;
+            const account = store.admins[id];
+            buttons.push(renderLoginSlot('admin', i, account));
+        }
+        adminGrid.innerHTML = buttons.join('');
+    }
+
+    if (cashierGrid) {
+        const buttons = [];
+        for (let i = 1; i <= CASHIER_SLOT_COUNT; i++) {
+            const id = `cashier_${i}`;
+            const account = store.cashiers[id];
+            buttons.push(renderLoginSlot('cashier', i, account));
+        }
+        cashierGrid.innerHTML = buttons.join('');
+    }
+}
+
+function normalizeNetworkConfig(config = {}) {
+    const mode = ['local', 'host', 'client'].includes(config.mode) ? config.mode : DEFAULT_NETWORK_CONFIG.mode;
+    const updateSource = ['lan', 'github'].includes(config.updateSource) ? config.updateSource : DEFAULT_NETWORK_CONFIG.updateSource;
+    const host = String(config.host || '').trim();
+    const rawPort = Number(config.port || DEFAULT_NETWORK_CONFIG.port);
+    const port = Number.isFinite(rawPort) && rawPort > 0 && rawPort < 65536 ? Math.round(rawPort) : DEFAULT_NETWORK_CONFIG.port;
+    const githubOwner = String(config.githubOwner || '').trim();
+    const githubRepo = String(config.githubRepo || '').trim();
+    const githubBranch = String(config.githubBranch || DEFAULT_NETWORK_CONFIG.githubBranch).trim() || DEFAULT_NETWORK_CONFIG.githubBranch;
+    return { mode, host, port, updateSource, githubOwner, githubRepo, githubBranch };
+}
+
+function collectNetworkConfig() {
+    return normalizeNetworkConfig({
+        mode: document.getElementById('networkMode')?.value,
+        host: document.getElementById('networkHost')?.value,
+        port: document.getElementById('networkPort')?.value,
+        updateSource: document.getElementById('updateSource')?.value,
+        githubOwner: document.getElementById('githubOwner')?.value,
+        githubRepo: document.getElementById('githubRepo')?.value,
+        githubBranch: document.getElementById('githubBranch')?.value
+    });
+}
+
+function setNetworkStatus(message, tone = '') {
+    const status = document.getElementById('networkStatus');
+    if (!status) return;
+    status.className = `connection-status ${tone}`.trim();
+    status.innerText = message;
+}
+
+function setUpdateStatus(message = '', tone = '') {
+    const status = document.getElementById('updateStatus');
+    if (!status) return;
+    status.className = `update-status ${tone}`.trim();
+    status.innerText = message;
+    status.style.display = message ? 'block' : 'none';
+}
+
+function shortFingerprint(manifest) {
+    return String(manifest?.fingerprint || '').slice(0, 8) || 'unknown';
+}
+
+function setVersionBadge(local = localAppManifest, remote = null, updateAvailable = false) {
+    const badge = document.getElementById('appVersionBadge');
+    if (!badge) return;
+    const localText = local
+        ? `v${local.version || '1.0.0'} / ${shortFingerprint(local)}`
+        : 'проверяется...';
+    const sourceName = collectNetworkConfig().updateSource === 'github' ? 'GitHub' : 'главный';
+    const remoteText = remote
+        ? ` | ${sourceName}: v${remote.version || '1.0.0'} / ${shortFingerprint(remote)}`
+        : '';
+    badge.innerText = `Версия: ${localText}${remoteText}${updateAvailable ? ' | нужно обновить' : ''}`;
+    badge.style.color = updateAvailable ? '#ff7675' : '#55efc4';
+}
+
+async function loadLocalAppManifest() {
+    try {
+        const result = await ipcRenderer.invoke('get-app-manifest');
+        if (result?.ok && result.manifest) {
+            localAppManifest = result.manifest;
+            setVersionBadge(localAppManifest);
+        }
+    } catch {
+        setVersionBadge(null);
+    }
+    return localAppManifest;
+}
+
+function updateUpdateControls(config = collectNetworkConfig(), updateAvailable = false) {
+    const checkBtn = document.getElementById('checkUpdateBtn');
+    const installBtn = document.getElementById('installUpdateBtn');
+    const normalized = normalizeNetworkConfig(config);
+    const isGithub = normalized.updateSource === 'github';
+    const canCheck = isGithub || normalized.mode === 'client';
+    if (checkBtn) checkBtn.style.display = canCheck ? 'block' : 'none';
+    if (installBtn) {
+        installBtn.style.display = canCheck && updateAvailable ? 'block' : 'none';
+        installBtn.innerText = isGithub ? 'ОБНОВИТЬ ИЗ GITHUB' : 'ОБНОВИТЬ С ГЛАВНОГО ПК';
+    }
+    if (!canCheck) setUpdateStatus('', '');
+}
+
+function applyNetworkConfigToForm(config) {
+    const normalized = normalizeNetworkConfig(config);
+    const mode = document.getElementById('networkMode');
+    const host = document.getElementById('networkHost');
+    const port = document.getElementById('networkPort');
+    const updateSource = document.getElementById('updateSource');
+    const githubOwner = document.getElementById('githubOwner');
+    const githubRepo = document.getElementById('githubRepo');
+    const githubBranch = document.getElementById('githubBranch');
+    if (mode) mode.value = normalized.mode;
+    if (host) host.value = normalized.host;
+    if (port) port.value = normalized.port;
+    if (updateSource) updateSource.value = normalized.updateSource;
+    if (githubOwner) githubOwner.value = normalized.githubOwner;
+    if (githubRepo) githubRepo.value = normalized.githubRepo;
+    if (githubBranch) githubBranch.value = normalized.githubBranch;
+    onNetworkModeChange();
+}
+
+function formatNetworkStatus(result) {
+    const config = normalizeNetworkConfig(result?.config || result?.status?.config || collectNetworkConfig());
+    if (config.mode === 'local') {
+        const urls = result?.status?.urls || result?.urls || [];
+        return { text: `Этот ПК работает отдельно${urls.length ? '. Адрес: ' + urls.join(', ') : ''}`, tone: 'warn' };
+    }
+    if (config.mode === 'host') {
+        const urls = result?.status?.urls || result?.urls || [];
+        if (result?.status?.serverRunning || result?.serverRunning || result?.ok) {
+            return { text: `Главный ПК запущен${urls.length ? ': ' + urls.join(', ') : ''}`, tone: 'ok' };
+        }
+        return { text: result?.status?.serverError || result?.message || 'Главный ПК еще не запущен', tone: 'bad' };
+    }
+    if (config.host) return { text: `Второй ПК подключается к ${config.host}:${config.port}`, tone: 'warn' };
+    return { text: 'Выберите второй ПК и укажите IP главного ПК', tone: 'warn' };
+}
+
+function onNetworkModeChange() {
+    const config = collectNetworkConfig();
+    const host = document.getElementById('networkHost');
+    const findBtn = document.querySelector('.connection-btn.find');
+    const githubSettings = document.getElementById('githubSettings');
+    if (host) host.disabled = config.mode !== 'client';
+    if (githubSettings) githubSettings.style.display = config.updateSource === 'github' ? 'block' : 'none';
+    if (findBtn) findBtn.style.display = 'block';
+    updateUpdateControls(config, false);
+    const info = formatNetworkStatus({ config });
+    setNetworkStatus(info.text, info.tone);
+}
+
+async function loadNetworkSettings() {
+    try {
+        const result = await ipcRenderer.invoke('get-network-config');
+        const config = normalizeNetworkConfig(result?.config);
+        applyNetworkConfigToForm(config);
+        const info = formatNetworkStatus(result);
+        setNetworkStatus(info.text, info.tone);
+        updateUpdateControls(config, false);
+        await loadLocalAppManifest();
+    } catch (err) {
+        applyNetworkConfigToForm(DEFAULT_NETWORK_CONFIG);
+        setNetworkStatus('Настройки подключения пока не загружены', 'bad');
+        await loadLocalAppManifest();
+    }
+}
+
+async function syncAlwaysOnTopState() {
+    try {
+        const result = await ipcRenderer.invoke('get-always-on-top');
+        isAlwaysOnTopMode = Boolean(result?.value);
+    } catch {
+        isAlwaysOnTopMode = false;
+    }
+}
+
+async function saveNetworkSettings() {
+    const config = collectNetworkConfig();
+    try {
+        const result = await ipcRenderer.invoke('save-network-config', config);
+        if (!result?.ok) {
+            setNetworkStatus(result?.error || 'Не удалось сохранить настройки', 'bad');
+            return;
+        }
+        applyNetworkConfigToForm(result.config || config);
+        const info = formatNetworkStatus(result);
+        setNetworkStatus('Сохранено. ' + info.text, info.tone);
+        updateUpdateControls(result.config || config, false);
+        await refreshAuthStore();
+        await renderLoginScreen();
+    } catch (err) {
+        setNetworkStatus('Ошибка сохранения: ' + (err.message || err), 'bad');
+    }
+}
+
+async function testNetworkConnection() {
+    const config = collectNetworkConfig();
+    setNetworkStatus('Проверяю подключение...', 'warn');
+    try {
+        const result = await ipcRenderer.invoke('test-network-connection', config);
+        setNetworkStatus(result?.message || (result?.ok ? 'Связь есть' : 'Нет связи'), result?.ok ? 'ok' : 'bad');
+    } catch (err) {
+        setNetworkStatus('Ошибка проверки: ' + (err.message || err), 'bad');
+    }
+}
+
+async function checkAppUpdate(showNoUpdateMessage = true) {
+    const config = collectNetworkConfig();
+    const isGithub = config.updateSource === 'github';
+    if (!isGithub && config.mode !== 'client') {
+        updateUpdateControls(config, false);
+        await loadLocalAppManifest();
+        setUpdateStatus('Обновление нужно проверять на втором ПК', 'warn');
+        return;
+    }
+
+    setUpdateStatus(isGithub ? 'Проверяю версию в GitHub...' : 'Проверяю версию на главном ПК...', 'warn');
+    updateUpdateControls(config, false);
+    try {
+        const result = await ipcRenderer.invoke('check-app-update', config);
+        if (!result?.ok) {
+            setUpdateStatus(result?.error || 'Не удалось проверить обновление', 'bad');
+            return;
+        }
+
+        updateUpdateControls(config, Boolean(result.updateAvailable));
+        setVersionBadge(result.local || localAppManifest, result.remote || null, Boolean(result.updateAvailable));
+        if (result.updateAvailable) {
+            setUpdateStatus(isGithub ? 'Найдена новая версия в GitHub. Можно обновить.' : 'Найдена новая версия на главном ПК. Можно обновить.', 'ok');
+        } else if (showNoUpdateMessage) {
+            setUpdateStatus(result.message || 'Версия уже актуальная', 'ok');
+        } else {
+            setUpdateStatus('', '');
+        }
+    } catch (err) {
+        setUpdateStatus('Ошибка проверки обновления: ' + (err.message || err), 'bad');
+    }
+}
+
+async function installAppUpdate() {
+    const config = collectNetworkConfig();
+    const isGithub = config.updateSource === 'github';
+    const ok = await showAppConfirm({
+        title: 'Обновить приложение',
+        message: isGithub
+            ? 'Скачать файлы программы из GitHub и заменить текущую версию на этом ПК? Перед заменой будет создана резервная копия. История, чеки, база и настройки не удаляются.'
+            : 'Скачать файлы программы с главного ПК и заменить текущую версию на этом ноуте? Перед заменой будет создана резервная копия. История, чеки, база и настройки не удаляются.',
+        okText: 'Обновить'
+    });
+    if (!ok) {
+        setUpdateStatus('Обновление отменено', 'warn');
+        return;
+    }
+
+    setUpdateStatus(isGithub ? 'Скачиваю обновление из GitHub...' : 'Скачиваю обновление с главного ПК...', 'warn');
+    try {
+        const result = await ipcRenderer.invoke('install-app-update', config);
+        if (!result?.ok) {
+            setUpdateStatus(result?.error || 'Не удалось установить обновление', 'bad');
+            return;
+        }
+
+        setVersionBadge(result.manifest || localAppManifest, null, false);
+        setUpdateStatus(`Обновлено файлов: ${result.updatedFiles?.length || 0}. Нужен перезапуск.`, 'ok');
+        const restart = await showAppConfirm({
+            title: 'Обновление готово',
+            message: 'Файлы программы обновлены. Перезапустить приложение сейчас?',
+            okText: 'Перезапустить'
+        });
+        if (restart) await ipcRenderer.invoke('restart-app');
+    } catch (err) {
+        setUpdateStatus('Ошибка обновления: ' + (err.message || err), 'bad');
+    }
+}
+
+function renderNetworkCandidates() {
+    const list = document.getElementById('networkFoundList');
+    if (!list) return;
+    if (!networkCandidates.length) {
+        list.innerHTML = '';
+        return;
+    }
+    list.innerHTML = networkCandidates.map((candidate, index) => `
+        <button type="button" onclick="applyNetworkCandidate(${index})">
+            ${escapeHtml(candidate.host)}:${escapeHtml(candidate.port)}
+            ${candidate.role === 'host' ? ' - Главный ПК' : candidate.role === 'client' ? ' - Второй ПК' : ''}
+        </button>
+    `).join('');
+}
+
+async function findNetworkHosts() {
+    const config = collectNetworkConfig();
+    setNetworkStatus(config.mode === 'host' ? 'Ищу второй ПК в локальной сети...' : 'Ищу главный ПК в локальной сети...', 'warn');
+    networkCandidates = [];
+    renderNetworkCandidates();
+
+    try {
+        const result = await ipcRenderer.invoke('find-network-hosts', { port: config.port, host: config.host });
+        networkCandidates = Array.isArray(result?.found) ? result.found : [];
+        renderNetworkCandidates();
+        if (!result?.ok) {
+            setNetworkStatus(result?.error || 'Автопоиск не удался', 'bad');
+        } else if (networkCandidates.length) {
+            setNetworkStatus(`Найдено: ${networkCandidates.length}. Нажмите на нужный адрес.`, 'ok');
+        } else {
+            const target = config.mode === 'host' ? 'Второй ПК' : 'Главный ПК';
+            setNetworkStatus(`${target} не найден. Проверьте, что оба компьютера включены и выбран сетевой режим.`, 'bad');
+        }
+    } catch (err) {
+        setNetworkStatus('Ошибка автопоиска: ' + (err.message || err), 'bad');
+    }
+}
+
+function applyNetworkCandidate(index) {
+    const candidate = networkCandidates[index];
+    if (!candidate) return;
+    if (candidate.role && candidate.role !== 'host') {
+        if (collectNetworkConfig().mode === 'client') {
+            setNetworkStatus(`Найден ПК ${candidate.host}:${candidate.port}, но на нём не выбран режим Главный ПК`, 'warn');
+        } else {
+            setNetworkStatus(`Найден ПК: ${candidate.host}:${candidate.port}`, 'ok');
+        }
+        return;
+    }
+    const mode = document.getElementById('networkMode');
+    const host = document.getElementById('networkHost');
+    const port = document.getElementById('networkPort');
+    if (mode) mode.value = 'client';
+    if (host) host.value = candidate.host;
+    if (port) port.value = candidate.port || collectNetworkConfig().port;
+    onNetworkModeChange();
+    setNetworkStatus(`Выбран главный ПК: ${candidate.host}:${candidate.port}`, 'ok');
+}
+
+function dedupeShiftButtons() {
+    const buttons = Array.from(document.querySelectorAll('.shift-open-btn'));
+    buttons.forEach((button, index) => {
+        if (index > 0) button.remove();
+    });
+}
+
+let appPromptResolver = null;
+let appPromptMode = 'prompt';
+
+function showAppPrompt({ title = 'Ввод', message = '', type = 'text', inputMode = '', okText = 'OK' } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('appPromptOverlay');
+        const titleEl = document.getElementById('appPromptTitle');
+        const messageEl = document.getElementById('appPromptMessage');
+        const input = document.getElementById('appPromptInput');
+        const okBtn = document.getElementById('appPromptOk');
+        const cancelBtn = document.querySelector('.app-prompt-cancel');
+
+        if (!overlay || !titleEl || !messageEl || !input || !okBtn) {
+            resolve(null);
+            return;
+        }
+
+        if (appPromptResolver) appPromptResolver(null);
+        appPromptMode = 'prompt';
+        appPromptResolver = resolve;
+        titleEl.innerText = title;
+        messageEl.innerText = message;
+        input.type = type;
+        input.inputMode = inputMode;
+        input.value = '';
+        input.style.display = 'block';
+        if (cancelBtn) cancelBtn.style.display = '';
+        okBtn.innerText = okText;
+        overlay.style.display = 'flex';
+        setTimeout(() => input.focus(), 0);
+    });
+}
+
+function showAppConfirm({ title = 'Подтверждение', message = '', okText = 'OK' } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('appPromptOverlay');
+        const titleEl = document.getElementById('appPromptTitle');
+        const messageEl = document.getElementById('appPromptMessage');
+        const input = document.getElementById('appPromptInput');
+        const okBtn = document.getElementById('appPromptOk');
+        const cancelBtn = document.querySelector('.app-prompt-cancel');
+
+        if (!overlay || !titleEl || !messageEl || !input || !okBtn) {
+            resolve(false);
+            return;
+        }
+
+        if (appPromptResolver) appPromptResolver(false);
+        appPromptMode = 'confirm';
+        appPromptResolver = resolve;
+        titleEl.innerText = title;
+        messageEl.innerText = message;
+        input.value = '';
+        input.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = '';
+        okBtn.innerText = okText;
+        overlay.style.display = 'flex';
+        setTimeout(() => okBtn.focus(), 0);
+    });
+}
+
+function showAppMessage({ title = 'Сообщение', message = '', okText = 'OK' } = {}) {
+    return new Promise(resolve => {
+        const overlay = document.getElementById('appPromptOverlay');
+        const titleEl = document.getElementById('appPromptTitle');
+        const messageEl = document.getElementById('appPromptMessage');
+        const input = document.getElementById('appPromptInput');
+        const okBtn = document.getElementById('appPromptOk');
+        const cancelBtn = document.querySelector('.app-prompt-cancel');
+
+        if (!overlay || !titleEl || !messageEl || !input || !okBtn) {
+            resolve(true);
+            return;
+        }
+
+        if (appPromptResolver) appPromptResolver(true);
+        appPromptMode = 'message';
+        appPromptResolver = resolve;
+        titleEl.innerText = title;
+        messageEl.innerText = message;
+        input.value = '';
+        input.style.display = 'none';
+        if (cancelBtn) cancelBtn.style.display = 'none';
+        okBtn.innerText = okText;
+        overlay.style.display = 'flex';
+        setTimeout(() => okBtn.focus(), 0);
+    });
+}
+
+function submitAppPrompt(event) {
+    if (event) event.preventDefault();
+    const input = document.getElementById('appPromptInput');
+    const overlay = document.getElementById('appPromptOverlay');
+    const value = appPromptMode === 'prompt' ? (input ? input.value : '') : true;
+    if (overlay) overlay.style.display = 'none';
+    if (input) input.style.display = 'block';
+    const cancelBtn = document.querySelector('.app-prompt-cancel');
+    if (cancelBtn) cancelBtn.style.display = '';
+
+    const resolve = appPromptResolver;
+    appPromptMode = 'prompt';
+    appPromptResolver = null;
+    if (input) {
+        input.type = 'text';
+        input.inputMode = '';
+    }
+    if (resolve) resolve(value);
+}
+
+function cancelAppPrompt() {
+    const overlay = document.getElementById('appPromptOverlay');
+    const input = document.getElementById('appPromptInput');
+    if (overlay) overlay.style.display = 'none';
+    if (input) input.style.display = 'block';
+    const cancelBtn = document.querySelector('.app-prompt-cancel');
+    if (cancelBtn) cancelBtn.style.display = '';
+
+    const resolve = appPromptResolver;
+    const value = appPromptMode === 'prompt' ? null : false;
+    appPromptMode = 'prompt';
+    appPromptResolver = null;
+    if (input) {
+        input.type = 'text';
+        input.inputMode = '';
+    }
+    if (resolve) resolve(value);
+}
+
+async function setupPasswordForAccount(label) {
+    const password = await showAppPrompt({
+        title: label,
+        message: 'Задайте пароль для первого входа',
+        type: 'password',
+        okText: 'Далее'
+    });
+    if (!password) return null;
+    const repeat = await showAppPrompt({
+        title: label,
+        message: 'Повторите пароль',
+        type: 'password',
+        okText: 'Сохранить'
+    });
+    if (password !== repeat) {
+        await showAppMessage({ title: 'Пароль', message: 'Пароли не совпали', okText: 'OK' });
+        return null;
+    }
+    return hashPassword(password);
+}
+
+async function verifyPassword(hash, label, { message = 'Введите пароль', okText = 'Войти' } = {}) {
+    const password = await showAppPrompt({
+        title: label,
+        message,
+        type: 'password',
+        okText
+    });
+    if (!password) return false;
+    const enteredHash = await hashPassword(password);
+    if (enteredHash !== hash) {
+        await showAppMessage({ title: 'Пароль', message: 'Неверный пароль', okText: 'OK' });
+        return false;
+    }
+    return true;
+}
+
+async function deleteAuthAccount(role, slot) {
+    await refreshAuthStore();
+    const bucket = role === 'cashier' ? 'cashiers' : 'admins';
+    const id = `${role}_${slot}`;
+    const account = getAuthStore()[bucket]?.[id];
+    if (!account?.passwordHash) {
+        await renderLoginScreen();
+        return;
+    }
+
+    const verified = await verifyPassword(account.passwordHash, `Удалить ${account.name}`, {
+        message: 'Введите пароль для удаления аккаунта',
+        okText: 'Удалить'
+    });
+    if (!verified) return;
+
+    try {
+        const result = await ipcRenderer.invoke('delete-auth-account', { role, id });
+        if (!result?.ok) {
+            await showAppMessage({
+                title: 'Удаление аккаунта',
+                message: result?.error || 'Не удалось удалить аккаунт',
+                okText: 'OK'
+            });
+            await renderLoginScreen();
+            return;
+        }
+
+        authStoreCache = normalizeAuthStore(result.store || {});
+        await renderLoginScreen();
+    } catch (err) {
+        await showAppMessage({
+            title: 'Удаление аккаунта',
+            message: 'Ошибка удаления: ' + (err.message || err),
+            okText: 'OK'
+        });
+    }
+}
+
+async function ensureCashierVersionCurrent() {
+    const config = collectNetworkConfig();
+    if (config.mode !== 'client') return true;
+    const updateSourceName = config.updateSource === 'github' ? 'GitHub' : 'главном ПК';
+
+    if (!config.host) {
+        setUpdateStatus('Для кассира на втором ПК укажите главный ПК и проверьте версию.', 'bad');
+        await showAppMessage({
+            title: 'Вход кассира',
+            message: 'Этот ПК выбран как второй, но IP главного ПК не указан. Кассир не может войти, пока подключение и версия не проверены.',
+            okText: 'OK'
+        });
+        return false;
+    }
+
+    setUpdateStatus(`Проверяю версию перед входом кассира (${updateSourceName})...`, 'warn');
+    updateUpdateControls(config, false);
+    try {
+        const result = await ipcRenderer.invoke('check-app-update', config);
+        if (!result?.ok) {
+            updateUpdateControls(config, false);
+            setVersionBadge(result?.local || localAppManifest, result?.remote || null, false);
+            setUpdateStatus(result?.error || `Не удалось проверить версию в ${updateSourceName}`, 'bad');
+            await showAppMessage({
+                title: 'Вход кассира',
+                message: 'Не удалось проверить версию на главном ПК. Вход кассира закрыт до проверки.',
+                okText: 'OK'
+            });
+            return false;
+        }
+
+        updateUpdateControls(config, Boolean(result.updateAvailable));
+        setVersionBadge(result.local || localAppManifest, result.remote || null, Boolean(result.updateAvailable));
+        if (result.updateAvailable) {
+            setUpdateStatus(config.updateSource === 'github' ? 'Версия устарела. Обновите приложение из GitHub.' : 'Версия устарела. Обновите приложение с главного ПК.', 'bad');
+            await showAppMessage({
+                title: 'Нужно обновление',
+                message: config.updateSource === 'github'
+                    ? 'В GitHub новая версия программы. Кассир не может войти, пока этот ПК не будет обновлен через кнопку ОБНОВИТЬ ИЗ GITHUB.'
+                    : 'На главном ПК новая версия программы. Кассир не может войти, пока этот ПК не будет обновлен через кнопку ОБНОВИТЬ С ГЛАВНОГО ПК.',
+                okText: 'OK'
+            });
+            return false;
+        }
+
+        setUpdateStatus('Версия совпадает с главным ПК', 'ok');
+        return true;
+    } catch (err) {
+        updateUpdateControls(config, false);
+        setUpdateStatus('Ошибка проверки версии: ' + (err.message || err), 'bad');
+        await showAppMessage({
+            title: 'Вход кассира',
+            message: 'Ошибка проверки версии. Вход кассира закрыт до обновления или восстановления связи с главным ПК.',
+            okText: 'OK'
+        });
+        return false;
+    }
+}
+
+async function loginAdmin(slot) {
+    const id = `admin_${slot}`;
+    await refreshAuthStore();
+    const store = getAuthStore();
+    let account = store.admins[id];
+
+    if (!account?.passwordHash) {
+        const name = cleanPersonName(await showAppPrompt({
+            title: `Админ ${slot}`,
+            message: 'Введите имя администратора',
+            type: 'text',
+            okText: 'Далее'
+        }));
+        if (!name) return;
+        const passwordHash = await setupPasswordForAccount(name);
+        if (!passwordHash) return;
+        account = { id, name, role: 'admin', passwordHash };
+        const result = await ipcRenderer.invoke('save-auth-account', { role: 'admin', id, account });
+        if (!result?.ok) {
+            await showAppMessage({ title: 'Админ', message: result?.error || 'Не удалось сохранить администратора', okText: 'OK' });
+            await renderLoginScreen();
+            return;
+        }
+        authStoreCache = normalizeAuthStore(result.store || {});
+        account = getAuthStore().admins[id] || account;
+        await renderLoginScreen();
+    } else if (!(await verifyPassword(account.passwordHash, account.name))) {
+        return;
+    }
+
+    await completeLogin(account);
+}
+
+async function loginCashier(slot) {
+    if (!(await ensureCashierVersionCurrent())) return;
+
+    const id = `cashier_${slot}`;
+    await refreshAuthStore();
+    const store = getAuthStore();
+    let account = store.cashiers[id];
+
+    if (!account?.passwordHash) {
+        const name = cleanPersonName(await showAppPrompt({
+            title: `Кассир ${slot}`,
+            message: 'Введите имя кассира',
+            type: 'text',
+            okText: 'Далее'
+        }));
+        if (!name) return;
+        const passwordHash = await setupPasswordForAccount(name);
+        if (!passwordHash) return;
+        account = { id, name, role: 'cashier', passwordHash };
+        const result = await ipcRenderer.invoke('save-auth-account', { role: 'cashier', id, account });
+        if (!result?.ok) {
+            await showAppMessage({ title: 'Кассир', message: result?.error || 'Не удалось сохранить кассира', okText: 'OK' });
+            await renderLoginScreen();
+            return;
+        }
+        authStoreCache = normalizeAuthStore(result.store || {});
+        account = getAuthStore().cashiers[id] || account;
+        await renderLoginScreen();
+    } else if (!(await verifyPassword(account.passwordHash, account.name))) {
+        return;
+    }
+
+    await completeLogin(account);
+}
+
+async function loginDeveloper() {
+    const password = await showAppPrompt({
+        title: 'Разработка',
+        message: 'Введите пароль',
+        type: 'password',
+        okText: 'Войти'
+    });
+    if (password !== DEVELOPER_PASSWORD) {
+        await showAppMessage({ title: 'Разработка', message: 'Неверный пароль', okText: 'OK' });
+        return;
+    }
+    await completeLogin({ id: 'developer', name: 'Разработка', role: 'developer' });
+}
+
+async function completeLogin(account) {
+    currentOperator = account.name;
+    currentRole = account.role;
+    currentUserId = account.id;
+    sessionStorage.setItem('fx_operator', currentOperator);
+    sessionStorage.setItem('fx_role', currentRole);
+    sessionStorage.setItem('fx_user_id', currentUserId);
+
+    setOperator(currentOperator);
+    document.getElementById('loginOverlay').style.display = 'none';
+    document.getElementById('ratesOverlay').style.display = 'flex';
+    await syncBillsFromDisk();
+    await renderCurrentList();
+    updateTotals();
+}
+
+function sameUser(item) {
+    return String(item?.user || '') === String(currentOperator || '');
+}
+
+function isDeletedItem(item) {
+    const status = String(item?.status || '').toLowerCase();
+    return status.includes('удал') || status.includes('deleted');
+}
+
+function isClosedShiftItem(item) {
+    const status = String(item?.status || '').toLowerCase();
+    return status.includes('закры') || status.includes('closed');
+}
+
+function personalBillsFrom(allBills) {
+    const active = (Array.isArray(allBills) ? allBills : []).filter(item => !isDeletedItem(item) && !isClosedShiftItem(item));
+    if (currentRole === 'admin' || currentRole === 'developer') return active;
+    return active.filter(item => sameUser(item));
+}
+
+function personalTrashFrom(allTrash) {
+    const items = Array.isArray(allTrash) ? allTrash : [];
+    if (currentRole === 'admin' || currentRole === 'developer') return items;
+    return items.filter(item => sameUser(item));
+}
+
+function personalTipsFrom(allTips) {
+    const active = (Array.isArray(allTips) ? allTips : []).filter(tip => !isDeletedItem(tip) && !isClosedShiftItem(tip));
+    if (currentRole === 'admin' || currentRole === 'developer') return active;
+    return active.filter(tip => sameUser(tip));
+}
+
+async function requireDeletePinIfNeeded() {
+    return true;
+}
+
+function canDeleteItems() {
+    return currentRole === 'admin' || currentRole === 'developer';
+}
+
+function renderDeleteButton(id, type = 'bills') {
+    if (!canDeleteItems()) return '';
+    const typeArg = type === 'tips' ? ", 'tips'" : '';
+    return `<button class="del-btn" onclick="deleteToTrash(${id}${typeArg})">❌</button>`;
+}
+
+async function syncBillsFromDisk() {
+    try {
+        const persistedBills = await ipcRenderer.invoke('get-history-data');
+        if (Array.isArray(persistedBills)) {
+            writeLocalList(DB_ALL_BILLS, persistedBills);
+            writeLocalList(DB_BILLS, personalBillsFrom(persistedBills));
+        }
+
+        const persistedTrash = await ipcRenderer.invoke('get-trash-data');
+        if (Array.isArray(persistedTrash)) {
+            writeLocalList(DB_ALL_TRASH, persistedTrash);
+            writeLocalList(DB_TRASH, personalTrashFrom(persistedTrash));
+        }
+
+        if (currentOperator) {
+            const userTips = await ipcRenderer.invoke('get-user-tips', { user: currentOperator, role: currentRole });
+            if (Array.isArray(userTips)) {
+                if (currentRole === 'admin' || currentRole === 'developer') {
+                    writeLocalList(DB_ALL_TIPS, userTips);
+                } else {
+                    const otherTips = readLocalList(DB_ALL_TIPS).filter(tip => !sameUser(tip));
+                    writeLocalList(DB_ALL_TIPS, userTips.reduce((list, tip) => upsertLocal(list, tip), otherTips));
+                }
+                writeLocalList(DB_TIPS, personalTipsFrom(readLocalList(DB_ALL_TIPS)));
+            }
+        }
+    } catch (err) {
+        console.error('Не удалось загрузить чеки из файла:', err);
+    }
+}
+
+function isOverlayOpen(id) {
+    const el = document.getElementById(id);
+    if (!el) return false;
+    return getComputedStyle(el).display !== 'none';
+}
+
+function isMainWorkspaceOpen() {
+    const main = document.getElementById('mainWrapper');
+    if (!main || getComputedStyle(main).display === 'none') return false;
+    return !isOverlayOpen('loginOverlay')
+        && !isOverlayOpen('ratesOverlay')
+        && !isOverlayOpen('splitOverlay')
+        && !isOverlayOpen('shiftOverlay')
+        && !isOverlayOpen('manualTipOverlay')
+        && !isOverlayOpen('appPromptOverlay');
+}
+
+function isTypingField(target) {
+    if (!target) return false;
+    const tag = String(target.tagName || '').toUpperCase();
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target.isContentEditable;
+}
+
+function shouldHandleSaveHotkey(target) {
+    if (!isMainWorkspaceOpen()) return false;
+    if (!target) return true;
+    const targetId = target.id || '';
+    if (targetId === 'historySearch') return false;
+    return true;
+}
+
+async function toggleAlwaysOnTopMode() {
+    try {
+        const result = await ipcRenderer.invoke('toggle-always-on-top');
+        if (result?.ok) {
+            isAlwaysOnTopMode = Boolean(result.value);
+        }
+    } catch (err) {
+        console.error('Не удалось переключить режим поверх окон:', err);
+    }
+}
+
+function workspaceRenderSignature() {
+    return JSON.stringify({
+        tab: activeTab,
+        bills: localStorage.getItem(DB_BILLS) || '',
+        tips: localStorage.getItem(DB_TIPS) || '',
+        trash: localStorage.getItem(DB_TRASH) || '',
+        shifts: localStorage.getItem(DB_SHIFT_ARCHIVE) || '',
+        allBills: localStorage.getItem(DB_ALL_BILLS) || '',
+        allTips: localStorage.getItem(DB_ALL_TIPS) || '',
+        allTrash: localStorage.getItem(DB_ALL_TRASH) || ''
+    });
+}
+
+async function renderWithoutRefreshEffect() {
+    document.body.classList.add('silent-refresh');
+    try {
+        await renderCurrentList();
+        updateTotals();
+    } finally {
+        setTimeout(() => document.body.classList.remove('silent-refresh'), 60);
+    }
+}
+
+async function refreshWorkspaceFromDisk(options = {}) {
+    if (!currentOperator || !isMainWorkspaceOpen()) return;
+    const before = workspaceRenderSignature();
+    await syncBillsFromDisk();
+    const after = workspaceRenderSignature();
+    if (options.forceRender || before !== after) {
+        await renderWithoutRefreshEffect();
+    }
+}
+
+function startAutoSync() {
+    if (autoSyncTimer) clearInterval(autoSyncTimer);
+    autoSyncTimer = setInterval(async () => {
+        if (autoSyncBusy) return;
+        autoSyncBusy = true;
+        try {
+            await refreshWorkspaceFromDisk({ silent: true });
+        } catch (err) {
+            console.error('Ошибка автообновления смены:', err);
+        } finally {
+            autoSyncBusy = false;
+        }
+    }, 3000);
+}
+
+window.onload = async () => {
+    dedupeShiftButtons();
+    moveTotalPanelToSide();
+    await syncAlwaysOnTopState();
+    await loadNetworkSettings();
+    await refreshAuthStore();
+    await migrateLegacyAuthStoreIfNeeded();
+    await renderLoginScreen();
+    startLoginAuthRefresh();
+    await syncBillsFromDisk();
+    await renderHistory();
+    calculate();
+};
+
+async function selectUser(name) {
+    const legacyIndex = LEGACY_ADMIN_ACCOUNTS.findIndex(adminName => adminName === name);
+    await loginAdmin(legacyIndex === -1 ? 1 : legacyIndex + 1);
+}
+
+async function startShift() {
+    dedupeShiftButtons();
+    document.getElementById('rRUB').value = document.getElementById('setupRUB').value;
+    document.getElementById('rUSD').value = document.getElementById('setupUSD').value;
+    document.getElementById('rEUR').value = document.getElementById('setupEUR').value;
+
+    setOperator(currentOperator);
+    document.getElementById('ratesOverlay').style.display = 'none';
+    document.getElementById('mainWrapper').style.display = 'flex';
+    await refreshWorkspaceFromDisk({ forceRender: true });
+    startAutoSync();
+    calculate();
+}
+
+function setOperator(name) {
+    currentOperator = name;
+    const roleText = roleLabel(currentRole);
+    document.getElementById('currentUserName').innerText = roleText ? `${name} (${roleText})` : name;
+    updateDeveloperToolsVisibility();
+}
+
+function updateDeveloperToolsVisibility() {
+    const isDeveloper = currentRole === 'developer';
+    const canManageShift = currentRole === 'admin' || currentRole === 'developer';
+    const canSeeManagerTotals = currentRole === 'admin' || currentRole === 'developer';
+    const cleanBtn = document.getElementById('devCleanHistoryBtn');
+    const commonHistoryBtn = document.getElementById('devClearCommonHistoryBtn');
+    const closeShiftBtn = document.getElementById('closeShiftOpenBtn');
+    const weekClearBtn = document.getElementById('weekClearBtn');
+    const weekPrintBtn = document.getElementById('weekPrintBtn');
+    const tabsBox = document.querySelector('.tabs');
+    if (cleanBtn) cleanBtn.style.display = isDeveloper ? 'block' : 'none';
+    if (commonHistoryBtn) commonHistoryBtn.style.display = isDeveloper ? 'block' : 'none';
+    if (closeShiftBtn) closeShiftBtn.style.display = canManageShift ? 'block' : 'none';
+    if (weekClearBtn) weekClearBtn.style.display = canManageShift ? 'block' : 'none';
+    if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
+    if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
+        ? 'repeat(5, minmax(0, 1fr))'
+        : 'repeat(4, minmax(0, 1fr))';
+    document.querySelectorAll('.manager-only-shift-tab').forEach(el => {
+        el.style.display = canManageShift ? '' : 'none';
+    });
+    document.querySelectorAll('.manager-only-total').forEach(el => {
+        el.style.display = canSeeManagerTotals ? '' : 'none';
+    });
+}
+
+function toggleTipMode() {
+    isTipMode = !isTipMode;
+    document.getElementById('tipToggler').classList.toggle('active', isTipMode);
+}
+
+function closeSplitOverlay() {
+    const overlay = document.getElementById('splitOverlay');
+    if (overlay) overlay.style.display = 'none';
+    recoverAmountInput(false);
+}
+
+async function handleTabClick(tab, el) {
+    if (tab === 'shifts' && currentRole !== 'admin' && currentRole !== 'developer') {
+        activeTab = 'bills';
+        document.querySelectorAll('.tab').forEach((item, index) => item.classList.toggle('active', index === 0));
+        await renderHistory();
+        updateTotals();
+        return;
+    }
+
+    // 1. Подсветка кнопок (удаляем у всех, даем той, на которую нажали)
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    activeTab = tab;
+
+    const historyView = document.getElementById('history-view') || document.getElementById('historyList');
+    const splitView = document.getElementById('split-view');
+    const trashView = document.getElementById('trash-view');
+    const shiftView = document.getElementById('shift-view');
+    const currencyFilterRow = document.getElementById('currencyFilterRow');
+    const statsBox = document.querySelector('.total-box'); // Весь блок с итогами
+    
+    // Блоки итогов конкретно для чеков и для чаевых
+    const billsTotal = document.getElementById('total-bills-box');
+    const tipsTotal = document.getElementById('total-tips-box');
+
+    if (currencyFilterRow) currencyFilterRow.classList.toggle('active', tab === 'history' || tab === 'shifts');
+
+    if (tab === 'trash') {
+        // РЕЖИМ КОРЗИНЫ
+        if(historyView) historyView.style.display = 'none';
+        if(splitView) splitView.style.display = 'none';
+        if(trashView) trashView.style.display = 'block';
+        if(shiftView) shiftView.style.display = 'none';
+        if(statsBox) statsBox.style.display = 'none'; // Полностью прячем статистику
+        renderTrash(); 
+    } else if (tab === 'shifts') {
+        if(historyView) historyView.style.display = 'none';
+        if(splitView) splitView.style.display = 'none';
+        if(trashView) trashView.style.display = 'none';
+        if(shiftView) shiftView.style.display = 'block';
+        if(statsBox) statsBox.style.display = 'none';
+        updateDeveloperToolsVisibility();
+        await renderShiftArchive();
+    } else {
+        // РЕЖИМ СПИСКОВ (Операции, История или Типы)
+        if(historyView) historyView.style.display = 'block';
+        if(splitView) splitView.style.display = 'none';
+        if(trashView) trashView.style.display = 'none';
+        if(shiftView) shiftView.style.display = 'none';
+        if(statsBox) statsBox.style.display = 'block'; // Показываем общую панель статистики
+
+        if (tab === 'bills' || tab === 'history') {
+            if(billsTotal) billsTotal.style.display = 'block'; // Показываем итоги операций
+            if(tipsTotal) tipsTotal.style.display = 'none';    // Скрываем итоги чаевых
+        } else if (tab === 'tips') {
+            if(billsTotal) billsTotal.style.display = 'none';  // Скрываем итоги операций
+            if(tipsTotal) tipsTotal.style.display = 'block';   // Показываем итоги чаевых
+        }
+
+        if (tab === 'history') {
+            await syncBillsFromDisk();
+        }
+        await renderHistory(); // Перерисовываем список (чеки или чаевые)
+        updateTotals();  // ПЕРЕСЧИТЫВАЕМ СУММЫ (важно!)
+    }
+}
+async function openSplit() {
+    const amd = parseFloat(document.getElementById('priceAMD').value);
+    if (!amd) {
+        await showAppMessage({ title: 'Раздельная оплата', message: 'Сначала введите сумму счета', okText: 'OK' });
+        focusMoneyInput('priceAMD');
+        return;
+    }
+    document.getElementById('splitTotalLabel').innerText = amd.toLocaleString();
+    document.getElementById('splitOverlay').style.display = 'flex';
+    document.getElementById('splitVal1').value = '';
+    document.getElementById('splitVal2').value = '';
+    isSplitTipMode = false;
+    calcSplit();
+    setTimeout(() => document.getElementById('splitVal1')?.focus(), 0);
+}
+
+function getRates() {
+    return {
+        RUB: parseFloat(document.getElementById('rRUB').value) || 0,
+        USD: parseFloat(document.getElementById('rUSD').value) || 0,
+        EUR: parseFloat(document.getElementById('rEUR').value) || 0,
+        AMD: 1
+    };
+}
+
+function setSplitCurrency(part, curr) {
+    document.getElementById(`splitCurr${part}`).value = curr;
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+        document.getElementById(`split${part}-${code}`)?.classList.toggle('active', code === curr);
+    });
+    calcSplit();
+}
+
+function setSplitChangeCurrency(curr) {
+    splitChangeCurrency = curr;
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+        document.getElementById(`split-change-${code}`)?.classList.toggle('active', code === curr);
+    });
+    calcSplit();
+}
+
+function getSplitTipCurrency(state) {
+    if ((state.changes[splitChangeCurrency] || 0) > 0) return splitChangeCurrency;
+    return ['AMD', 'USD', 'EUR', 'RUB'].find(curr => (state.changes[curr] || 0) > 0) || splitChangeCurrency;
+}
+
+function toggleSplitTipMode() {
+    const state = getSplitState();
+    const tipCurr = getSplitTipCurrency(state);
+    if (!((state.changes[tipCurr] || 0) > 0)) {
+        isSplitTipMode = false;
+        calcSplit();
+        return;
+    }
+
+    if (tipCurr !== splitChangeCurrency) {
+        splitChangeCurrency = tipCurr;
+        ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+            document.getElementById(`split-change-${code}`)?.classList.toggle('active', code === tipCurr);
+        });
+    }
+    isSplitTipMode = !isSplitTipMode;
+    calcSplit();
+}
+
+function applySplitRemainder(curr) {
+    const state = getSplitState();
+    const suggestedValue = state.remainingOptions[curr] || 0;
+    setSplitCurrency(2, curr);
+
+    const input = document.getElementById('splitVal2');
+    if (input) {
+        input.value = suggestedValue || '';
+        input.focus();
+        input.select();
+    }
+    calcSplit();
+}
+
+function getSplitState() {
+    const totalAmd = parseFloat(document.getElementById('priceAMD').value) || 0;
+    const rates = getRates();
+    const payments = [1, 2].map(part => {
+        const curr = document.getElementById(`splitCurr${part}`).value;
+        const value = parseFloat(document.getElementById(`splitVal${part}`).value) || 0;
+        const rate = rates[curr] || 0;
+        return { part, curr, value, amd: value * rate };
+    });
+    const receivedAMD = payments.reduce((sum, payment) => sum + payment.amd, 0);
+    const diffAMD = receivedAMD - totalAmd;
+    const remainingAfterFirstAMD = Math.max(0, totalAmd - payments[0].amd);
+    const remainingOptions = {};
+    const changes = {};
+
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        const rate = rates[curr] || 0;
+        const rawDue = rate ? remainingAfterFirstAMD / rate : 0;
+        const raw = rate ? diffAMD / rate : 0;
+        remainingOptions[curr] = roundDueInOurFavor(rawDue, curr);
+        changes[curr] = diffAMD > 0 ? Math.max(0, roundChangeInOurFavor(raw, curr)) : 0;
+    });
+
+    return {
+        totalAmd,
+        payments,
+        receivedAMD,
+        diffAMD,
+        remainingAfterFirstAMD,
+        remainingOptions,
+        changes,
+        shortageAMD: diffAMD < 0 ? Math.round(Math.abs(diffAMD)) : 0
+    };
+}
+
+function calcSplit() {
+    const state = getSplitState();
+    const updateText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
+    };
+
+    updateText('splitReceivedAmd', `${Math.round(state.receivedAMD).toLocaleString()} ֏`);
+    updateText('splitDiffAmd', `${Math.round(state.diffAMD).toLocaleString()} ֏`);
+    updateText('splitRemainingAmd', `${Math.round(state.remainingAfterFirstAMD).toLocaleString()} ֏`);
+
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        updateText(`split-rem-${curr}`, state.remainingOptions[curr] || 0);
+        updateText(`split-v-${curr}`, state.changes[curr] || 0);
+    });
+    updateText('splitSelectedChange', state.changes[splitChangeCurrency] || 0);
+    updateText('splitSelectedChangeCurr', splitChangeCurrency);
+
+    const tipCurr = getSplitTipCurrency(state);
+    const tipValue = state.changes[tipCurr] || 0;
+    if (!(tipValue > 0)) isSplitTipMode = false;
+
+    const splitTipBtn = document.getElementById('splitTipToggler');
+    if (splitTipBtn) {
+        splitTipBtn.disabled = !(tipValue > 0);
+        splitTipBtn.classList.toggle('active', isSplitTipMode);
+        splitTipBtn.innerText = isSplitTipMode ? `В TIP: ${tipValue} ${tipCurr}` : 'Остаток на чай';
+    }
+
+    const diffEl = document.getElementById('splitDiffAmd');
+    if (diffEl) {
+        diffEl.style.color = state.diffAMD < 0 ? '#ff7675' : '#55efc4';
+    }
+}
+
+async function saveSplitPayment() {
+    const state = getSplitState();
+    if (!state.totalAmd) {
+        await showAppMessage({ title: 'Раздельная оплата', message: 'Сначала введите сумму счета', okText: 'OK' });
+        document.getElementById('splitOverlay').style.display = 'none';
+        focusMoneyInput('priceAMD');
+        return;
+    }
+    if (!state.payments.some(payment => payment.value > 0)) {
+        await showAppMessage({ title: 'Раздельная оплата', message: 'Введите оплату', okText: 'OK' });
+        const input = document.getElementById('splitVal1');
+        setTimeout(() => {
+            input?.focus({ preventScroll: true });
+            input?.select();
+        }, 0);
+        return;
+    }
+
+    const rates = getRates();
+    const billId = Date.now();
+    const billDate = new Date().toLocaleDateString('ru-RU');
+    const billTime = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    const tipCurr = getSplitTipCurrency(state);
+    const selectedChange = state.changes[splitChangeCurrency] || 0;
+    const tipChange = state.changes[tipCurr] || 0;
+    const useTip = isSplitTipMode && tipChange > 0 && state.diffAMD > 0;
+    const changeCurrForSave = useTip ? tipCurr : splitChangeCurrency;
+    const changeForSave = useTip ? 0 : selectedChange;
+    const tipAmount = useTip ? tipChange : 0;
+    const tipCurrForSave = useTip ? tipCurr : null;
+    const tipAMD = useTip ? tipChange * (rates[tipCurr] || 0) : 0;
+    const tipId = useTip ? billId + 1 : null;
+    const returnedChangeAMD = changeForSave * (rates[changeCurrForSave] || 0);
+    const receivedForTotalsAMD = Math.max(0, state.receivedAMD - returnedChangeAMD - tipAMD);
+
+    const splitEntry = { 
+        id: billId,
+        isSplit: true,
+        date: billDate,
+        time: billTime,
+        billAmd: state.totalAmd,
+        payments: state.payments,
+        payVal: state.payments.map(payment => `${payment.value} ${payment.curr}`).join(' + '),
+        receivedAMD: receivedForTotalsAMD,
+        receivedRawAMD: state.receivedAMD,
+        diffAMD: state.diffAMD,
+        remainingAfterFirstAMD: state.remainingAfterFirstAMD,
+        remainingOptions: state.remainingOptions,
+        changeOptions: state.changes,
+        changeVal: changeForSave,
+        changeCurr: changeCurrForSave,
+        tipAmount: tipAmount,
+        tipCurr: tipCurrForSave,
+        tipAMD: tipAMD,
+        tipId: tipId,
+        shortageAMD: state.shortageAMD,
+        isShortage: state.shortageAMD > 0,
+        user: currentOperator,
+        role: currentRole,
+        status: ''
+    };
+
+    const saveResult = await ipcRenderer.invoke('save-bill', splitEntry);
+    if (!saveResult || saveResult.ok === false) {
+        await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить раздельную оплату', okText: 'OK' });
+        return;
+    }
+
+    const allBills = upsertLocal(readLocalList(DB_ALL_BILLS), splitEntry);
+    writeLocalList(DB_ALL_BILLS, allBills);
+    writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+
+    if (useTip) {
+        const tipEntry = {
+            id: tipId,
+            billId,
+            sourceBillId: billId,
+            date: billDate,
+            time: billTime,
+            val: tipAmount,
+            curr: tipCurrForSave,
+            amd: tipAMD,
+            user: currentOperator
+        };
+        writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
+        writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
+        ipcRenderer.send('save-tip', tipEntry);
+    }
+
+    document.getElementById('splitOverlay').style.display = 'none';
+    activeTab = 'bills';
+    document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
+    prepareNewPaymentInput();
+    await renderHistory();
+    updateTotals();
+}
+
+async function processSave() {
+    const priceAMD = parseFloat(document.getElementById('priceAMD').value) || 0;
+    const givenVal = parseFloat(document.getElementById('given').value) || 0;
+    const payCurr = document.getElementById('currType').value;
+    const rates = { RUB: parseFloat(document.getElementById('rRUB').value) || 0, USD: parseFloat(document.getElementById('rUSD').value) || 0, EUR: parseFloat(document.getElementById('rEUR').value) || 0, AMD: 1 };
+
+    if (!priceAMD) {
+        await showAppMessage({ title: 'Нет суммы', message: 'Введите сумму в драмах', okText: 'OK' });
+        focusMoneyInput('priceAMD');
+        return;
+    }
+    if (!givenVal) {
+        await showAppMessage({ title: 'Нет оплаты', message: 'Введите сумму оплаты', okText: 'OK' });
+        focusMoneyInput('given');
+        return;
+    }
+
+    const rate = rates[payCurr] || 1;
+    const exactInCurr = rate !== 0 ? priceAMD / rate : 0;
+
+    let roundedInCurr;
+    if (payCurr === 'RUB') {
+        roundedInCurr = Math.ceil(exactInCurr / 50) * 50;
+    } else {
+        roundedInCurr = Math.ceil(exactInCurr);
+    }
+    const payRoundAMD = (roundedInCurr || 0) * rate;
+
+    const givenAMD = givenVal * (rates[payCurr] || 0);
+    const diffAMD = givenAMD - payRoundAMD;
+
+    const changeRate = rates[changeCurrency] || 1;
+    const rawChangeInChangeCurr = changeRate !== 0 ? diffAMD / changeRate : 0;
+
+    let roundedChangeInChangeCurr;
+    if (changeCurrency === 'RUB') {
+        roundedChangeInChangeCurr = roundChangeInOurFavor(rawChangeInChangeCurr, changeCurrency);
+    } else {
+        roundedChangeInChangeCurr = roundChangeInOurFavor(rawChangeInChangeCurr, changeCurrency);
+    }
+
+    const changeVal = isFinite(roundedChangeInChangeCurr) ? roundedChangeInChangeCurr : 0;
+    const isShortage = givenAMD < payRoundAMD;
+    const shortageAMD = isShortage ? Math.round(payRoundAMD - givenAMD) : 0;
+    const shortageInPayCurr = isShortage ? (rate !== 0 ? Math.round((shortageAMD / rate) * 100) / 100 : 0) : 0;
+
+    let finalChange = isShortage ? 0 : changeVal;
+    let tipAmount = 0;
+    let tipCurr = null;
+    let tipAMD = 0;
+    let tipId = null;
+    const billId = Date.now();
+    const billDate = new Date().toLocaleDateString('ru-RU');
+    const billTime = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+
+    if (isTipMode && changeVal > 0) {
+        tipAmount = changeVal;
+        tipCurr = changeCurrency;
+        tipAMD = changeVal * (rates[changeCurrency] || 1);
+        tipId = billId + 1;
+        const tipEntry = {
+            id: tipId,
+            billId,
+            sourceBillId: billId,
+            date: billDate,
+            time: billTime,
+            val: changeVal, curr: changeCurrency, amd: tipAMD, user: currentOperator
+        };
+        writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
+        writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
+        ipcRenderer.send('save-tip', tipEntry);
+        finalChange = 0;
+    }
+
+    const receivedAMD = givenAMD - (finalChange > 0 ? finalChange * (rates[changeCurrency] || 1) : 0);
+
+    const billEntry = { 
+        id: billId,
+        date: billDate,
+        time: billTime,
+        billAmd: priceAMD, shouldPayAMD: payRoundAMD, shouldPayInPayCurr: roundedInCurr,
+        payVal: givenVal, payCurr: payCurr,
+        changeVal: finalChange, changeCurr: changeCurrency,
+        tipAmount: tipAmount, tipCurr: tipCurr, tipAMD: tipAMD, tipId: tipId,
+        shortageAMD: shortageAMD, shortageInPayCurr: shortageInPayCurr,
+        receivedAMD: receivedAMD,
+        user: currentOperator, role: currentRole, isShortage: isShortage
+    };
+    
+    const saveResult = await ipcRenderer.invoke('save-bill', billEntry);
+    if (!saveResult || saveResult.ok === false) {
+        await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить чек в файл', okText: 'OK' });
+        focusMoneyInput('priceAMD');
+        return;
+    }
+
+    const allBills = upsertLocal(readLocalList(DB_ALL_BILLS), billEntry);
+    writeLocalList(DB_ALL_BILLS, allBills);
+    writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+
+    prepareNewPaymentInput();
+    await renderHistory();
+    updateTotals();
+}
+
+async function renderCurrentList() {
+    if (activeTab === 'trash') {
+        await renderTrash();
+    } else if (activeTab === 'shifts') {
+        await renderShiftArchive();
+    } else if (activeTab === 'split') {
+        await renderSplitPayments();
+    } else {
+        await renderHistory();
+    }
+}
+
+function renderBillDetails(i) {
+    const lines = [];
+    if (i.isSplit || (i.payVal && String(i.payVal).includes('+'))) {
+        lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal}</b></div>`);
+        if (i.receivedAMD) {
+            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
+        }
+        if (Number(i.changeVal) > 0 && i.changeCurr) {
+            lines.push(`<div style="font-size:12px;color:#111;">Сдача: <b>${i.changeVal || 0} ${i.changeCurr}</b></div>`);
+        }
+        if (i.tipAmount > 0) {
+            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${i.tipAmount} ${i.tipCurr || ''}</b></div>`);
+        }
+        if (i.shortageAMD > 0) {
+            lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏</b></div>`);
+        }
+    } else {
+        if (i.shouldPayInPayCurr) {
+            lines.push(`<div style="font-size:11px;color:#666;">К оплате: ${i.shouldPayInPayCurr} ${i.payCurr || ''}</div>`);
+        }
+        lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal ?? 0} ${i.payCurr || ''}</b></div>`);
+        if (i.changeVal > 0) {
+            lines.push(`<div style="font-size:12px;">Сдача: <b>${i.changeVal} ${i.changeCurr || ''}</b></div>`);
+        }
+        if (i.tipAmount > 0) {
+            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${i.tipAmount} ${i.tipCurr || ''}</b></div>`);
+        }
+        if (i.shortageAMD > 0) {
+            lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏${i.shortageInPayCurr ? ` / ${i.shortageInPayCurr} ${i.payCurr || ''}` : ''}</b></div>`);
+        }
+        if (i.receivedAMD) {
+            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
+        }
+    }
+    return lines.join('');
+}
+
+function renderStatus(status) {
+    if (!status) return '';
+    const restored = String(status).toLowerCase().includes('восстанов');
+    const color = restored ? '#0984e3' : '#999';
+    return `| <span style="color:${color}; font-weight:900;">${status}</span>`;
+}
+
+function recoverAmountInput(clearValues = false) {
+    const priceInput = document.getElementById('priceAMD');
+    const givenInput = document.getElementById('given');
+    [priceInput, givenInput].forEach(input => {
+        if (!input) return;
+        input.disabled = false;
+        input.readOnly = false;
+        input.removeAttribute('disabled');
+        input.removeAttribute('readonly');
+    });
+
+    if (clearValues) {
+        if (priceInput) priceInput.value = '';
+        if (givenInput) givenInput.value = '';
+    }
+    calculate();
+
+    const focusPrice = () => {
+        if (!priceInput) return;
+        priceInput.blur();
+        priceInput.focus({ preventScroll: true });
+        priceInput.select();
+    };
+    setTimeout(focusPrice, 0);
+    setTimeout(focusPrice, 80);
+}
+
+function focusMoneyInput(id = 'priceAMD') {
+    const priceInput = document.getElementById('priceAMD');
+    const givenInput = document.getElementById('given');
+    [priceInput, givenInput].forEach(input => {
+        if (!input) return;
+        input.disabled = false;
+        input.readOnly = false;
+        input.removeAttribute('disabled');
+        input.removeAttribute('readonly');
+    });
+    calculate();
+
+    const input = document.getElementById(id) || priceInput;
+    const focusTarget = () => {
+        if (!input) return;
+        input.blur();
+        input.focus({ preventScroll: true });
+        input.select();
+    };
+    setTimeout(focusTarget, 0);
+    setTimeout(focusTarget, 80);
+}
+
+function prepareNewPaymentInput() {
+    const priceInput = document.getElementById('priceAMD');
+    const givenInput = document.getElementById('given');
+    const splitVal1 = document.getElementById('splitVal1');
+    const splitVal2 = document.getElementById('splitVal2');
+    const splitOverlay = document.getElementById('splitOverlay');
+
+    if (splitVal1) splitVal1.value = '';
+    if (splitVal2) splitVal2.value = '';
+    if (splitOverlay) splitOverlay.style.display = 'none';
+
+    isTipMode = false;
+    isSplitTipMode = false;
+    document.getElementById('tipToggler')?.classList.remove('active');
+    document.getElementById('splitTipToggler')?.classList.remove('active');
+    recoverAmountInput(true);
+}
+
+function setHistoryCurrencyFilter(curr) {
+    historyCurrencyFilter = curr || 'ALL';
+    ['ALL', 'RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+        document.getElementById(`filter-${code}`)?.classList.toggle('active', code === historyCurrencyFilter);
+    });
+    renderCurrentList();
+}
+
+function billUsesCurrency(bill, curr = historyCurrencyFilter) {
+    if (!curr || curr === 'ALL') return true;
+    if (String(bill.payCurr || '') === curr) return true;
+    if (String(bill.changeCurr || '') === curr) return true;
+    if (String(bill.tipCurr || '') === curr) return true;
+    if (Array.isArray(bill.payments) && bill.payments.some(payment => String(payment.curr || '') === curr && Number(payment.value) > 0)) return true;
+    if (String(bill.payVal || '').includes(curr)) return true;
+    return false;
+}
+
+function filterBillsByCurrency(bills) {
+    const items = Array.isArray(bills) ? bills : [];
+    if (historyCurrencyFilter === 'ALL') return items;
+    return items.filter(item => billUsesCurrency(item, historyCurrencyFilter));
+}
+
+function shiftUsesCurrency(shift) {
+    if (historyCurrencyFilter === 'ALL') return true;
+    const bills = Array.isArray(shift?.bills) ? shift.bills : [];
+    const tips = Array.isArray(shift?.tips) ? shift.tips : [];
+    const trash = Array.isArray(shift?.trash) ? shift.trash : [];
+    return bills.some(bill => billUsesCurrency(bill, historyCurrencyFilter))
+        || trash.some(bill => billUsesCurrency(bill, historyCurrencyFilter))
+        || tips.some(tip => String(tip.curr || '') === historyCurrencyFilter);
+}
+
+function formatAmd(value) {
+    return `${Math.round(Number(value) || 0).toLocaleString('ru-RU')} ֏`;
+}
+
+function emptyCurrencyTotals() {
+    return { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
+}
+
+function emptyTableTotalsByRole() {
+    return { cashier: 0, manager: 0 };
+}
+
+function tableRoleForBill(bill = {}) {
+    const role = String(bill.role || bill.userRole || roleForShiftName(bill.user || '', '') || '').toLowerCase();
+    return role === 'cashier' ? 'cashier' : 'manager';
+}
+
+function addTableTotalByRole(totals, bill, value) {
+    const key = tableRoleForBill(bill);
+    totals[key] = (Number(totals[key]) || 0) + (Number(value) || 0);
+    return totals;
+}
+
+function mergeTableTotalsByRole(target, source = {}) {
+    target.cashier = (Number(target.cashier) || 0) + (Number(source.cashier) || 0);
+    target.manager = (Number(target.manager) || 0) + (Number(source.manager) || 0);
+    return target;
+}
+
+function mergeCurrencyTotals(target, source = {}) {
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        target[curr] = (Number(target[curr]) || 0) + (Number(source?.[curr]) || 0);
+    });
+    return target;
+}
+
+function getShiftWeekKey(shift) {
+    if (shift?.weekKey) return String(shift.weekKey);
+    const createdAt = Date.parse(shift?.createdAt || '');
+    if (Number.isFinite(createdAt)) return weekKeyForDate(createdAt);
+    const parsed = parseRuDateTime(shift?.date, shift?.time);
+    return parsed ? weekKeyForDate(parsed) : '';
+}
+
+function paymentAmdValue(payment = {}) {
+    return (Number(payment.value) || 0) * rateForCurrency(payment.curr || 'AMD');
+}
+
+function billReceivedAmdValue(bill = {}) {
+    if (Number.isFinite(Number(bill.receivedAMD))) return Number(bill.receivedAMD) || 0;
+    if (Array.isArray(bill.payments)) {
+        return bill.payments.reduce((sum, payment) => sum + paymentAmdValue(payment), 0);
+    }
+    return (Number(bill.payVal) || 0) * rateForCurrency(bill.payCurr || 'AMD');
+}
+
+function buildSummaryFromShiftItems(shift = {}) {
+    const bills = (Array.isArray(shift.bills) ? shift.bills : []).filter(item => !isDeletedItem(item) && !isClosedShiftItem(item));
+    const tips = (Array.isArray(shift.tips) ? shift.tips : []).filter(item => !isDeletedItem(item));
+    const trash = Array.isArray(shift.trash) ? shift.trash : [];
+    const cashTotals = emptyCurrencyTotals();
+    const tipTotals = emptyCurrencyTotals();
+    const tableTotalsByRole = emptyTableTotalsByRole();
+    let planAMD = 0;
+    let receivedAMD = 0;
+    let shortageAMD = 0;
+    let tipTotalAMD = 0;
+
+    bills.forEach(bill => {
+        const billAmd = Number(bill.billAmd) || 0;
+        planAMD += billAmd;
+        addTableTotalByRole(tableTotalsByRole, bill, billAmd);
+        receivedAMD += billReceivedAmdValue(bill);
+        shortageAMD += Number(bill.shortageAMD) || 0;
+
+        if (Array.isArray(bill.payments)) {
+            bill.payments.forEach(payment => addPaymentToTotals(cashTotals, payment.curr, payment.value));
+        } else {
+            addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
+        }
+    });
+
+    tips.forEach(tip => {
+        addPaymentToTotals(tipTotals, tip.curr, tip.val);
+        tipTotalAMD += Number(tip.amd) || ((Number(tip.val) || 0) * rateForCurrency(tip.curr || 'AMD'));
+    });
+
+    return {
+        billsCount: bills.length,
+        tipsCount: tips.length,
+        trashCount: trash.length,
+        cashTotals,
+        tipTotals,
+        tableTotalsByRole,
+        planAMD,
+        receivedAMD,
+        shortageAMD,
+        tipTotalAMD,
+        totalWithTipAMD: receivedAMD + tipTotalAMD,
+        finalDiffAMD: (receivedAMD + tipTotalAMD) - planAMD
+    };
+}
+
+function shiftSummaryValue(summary, fallback, key) {
+    return Object.prototype.hasOwnProperty.call(summary || {}, key)
+        ? (Number(summary[key]) || 0)
+        : (Number(fallback[key]) || 0);
+}
+
+function buildWeeklyShiftSummary(shifts, weekKey = weekKeyForDate()) {
+    const summary = {
+        weekKey,
+        shiftsCount: 0,
+        billsCount: 0,
+        tipsCount: 0,
+        trashCount: 0,
+        cashTotals: emptyCurrencyTotals(),
+        tipTotals: emptyCurrencyTotals(),
+        tableTotalsByRole: emptyTableTotalsByRole(),
+        planAMD: 0,
+        receivedAMD: 0,
+        shortageAMD: 0,
+        tipTotalAMD: 0,
+        totalWithTipAMD: 0,
+        finalDiffAMD: 0
+    };
+
+    sortNewestFirst(shifts || [])
+        .filter(shift => getShiftWeekKey(shift) === weekKey)
+        .forEach(shift => {
+            const saved = shift.summary || {};
+            const fallback = buildSummaryFromShiftItems(shift);
+            summary.shiftsCount += 1;
+            summary.billsCount += shiftSummaryValue(saved, fallback, 'billsCount');
+            summary.tipsCount += shiftSummaryValue(saved, fallback, 'tipsCount');
+            summary.trashCount += shiftSummaryValue(saved, fallback, 'trashCount');
+            mergeCurrencyTotals(summary.cashTotals, saved.cashTotals || fallback.cashTotals);
+            mergeCurrencyTotals(summary.tipTotals, saved.tipTotals || fallback.tipTotals);
+            mergeTableTotalsByRole(summary.tableTotalsByRole, saved.tableTotalsByRole || fallback.tableTotalsByRole);
+            summary.planAMD += shiftSummaryValue(saved, fallback, 'planAMD');
+            summary.receivedAMD += shiftSummaryValue(saved, fallback, 'receivedAMD');
+            summary.shortageAMD += shiftSummaryValue(saved, fallback, 'shortageAMD');
+            summary.tipTotalAMD += shiftSummaryValue(saved, fallback, 'tipTotalAMD');
+            summary.totalWithTipAMD += Object.prototype.hasOwnProperty.call(saved, 'totalWithTipAMD')
+                ? (Number(saved.totalWithTipAMD) || 0)
+                : fallback.totalWithTipAMD;
+            summary.finalDiffAMD += Object.prototype.hasOwnProperty.call(saved, 'finalDiffAMD')
+                ? (Number(saved.finalDiffAMD) || 0)
+                : fallback.finalDiffAMD;
+        });
+
+    return summary;
+}
+
+function renderWeeklyShiftReport(shifts) {
+    const box = document.getElementById('weeklyShiftReport');
+    if (!box) return;
+    const summary = buildWeeklyShiftSummary(shifts, weekKeyForDate());
+    box.innerHTML = `
+        <div class="week-report-title">
+            <span>Недельный отчет</span>
+            <span>${escapeHtml(summary.weekKey)}</span>
+        </div>
+        <div class="week-report-row"><span>Смены / чеки / TIP</span><b>${summary.shiftsCount} / ${summary.billsCount} / ${summary.tipsCount}</b></div>
+        <div class="week-report-muted">Получено за все смены</div>
+        <div class="week-report-grid">
+            <div>RUB: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.RUB)}</b></div>
+            <div>USD: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.USD)}</b></div>
+            <div>EUR: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.EUR)}</b></div>
+            <div>AMD: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.AMD)}</b></div>
+        </div>
+        <div class="week-report-muted">TIP за все смены</div>
+        <div class="week-report-grid">
+            <div>RUB: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.RUB)}</b></div>
+            <div>USD: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.USD)}</b></div>
+            <div>EUR: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.EUR)}</b></div>
+            <div>AMD: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.AMD)}</b></div>
+        </div>
+        <div class="week-report-muted">Сумма столов</div>
+        <div class="week-report-row"><span>Кассир</span><b>${formatAmd(summary.tableTotalsByRole.cashier)}</b></div>
+        <div class="week-report-row"><span>Менеджер</span><b>${formatAmd(summary.tableTotalsByRole.manager)}</b></div>
+        <div class="week-report-row"><span>Общая сумма</span><b>${formatAmd(summary.planAMD)}</b></div>
+        <div class="week-report-row"><span>В кассе + TIP</span><b class="curr-line">${formatAmd(summary.totalWithTipAMD)}</b></div>
+        <div class="week-report-row"><span>Недоплата</span><b style="color:#ff7675;">${formatAmd(summary.shortageAMD)}</b></div>
+        <div class="week-report-row"><span>Разница</span><b>${formatAmd(summary.finalDiffAMD)}</b></div>
+    `;
+}
+
+async function loadShiftArchiveForReports() {
+    let shifts = [];
+    try {
+        const loaded = await ipcRenderer.invoke('get-shift-archive');
+        shifts = Array.isArray(loaded) ? loaded : [];
+        writeLocalList(DB_SHIFT_ARCHIVE, shifts);
+    } catch {
+        shifts = readLocalList(DB_SHIFT_ARCHIVE);
+    }
+
+    if (currentRole !== 'admin' && currentRole !== 'developer') {
+        shifts = shifts.filter(shift =>
+            String(shift.operator || '') === String(currentOperator || '')
+            || String(shift.users || '').split(',').map(name => name.trim()).includes(String(currentOperator || ''))
+        );
+    }
+
+    return sortNewestFirst(shifts);
+}
+
+function renderWeeklyPrintReport(shifts) {
+    const report = document.getElementById('shiftPrintArea');
+    if (!report) return;
+    const summary = buildWeeklyShiftSummary(shifts, weekKeyForDate());
+    const now = new Date();
+    report.innerHTML = `
+        <h2>НЕДЕЛЬНЫЙ ОТЧЕТ</h2>
+        <div class="row"><span>Неделя</span><b>${escapeHtml(summary.weekKey)}</b></div>
+        <div class="row"><span>Дата печати</span><b>${escapeHtml(now.toLocaleDateString('ru-RU'))}</b></div>
+        <div class="row"><span>Время</span><b>${escapeHtml(now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))}</b></div>
+        <div class="row"><span>Сотрудник</span><b>${escapeHtml(currentOperator || '-')}</b></div>
+        <div class="row"><span>Роль</span><b>${escapeHtml(roleLabel(currentRole) || '-')}</b></div>
+        <div class="line"></div>
+        <div class="row"><span>Смены</span><b>${summary.shiftsCount}</b></div>
+        <div class="row"><span>Чеки</span><b>${summary.billsCount}</b></div>
+        <div class="row"><span>TIP</span><b>${summary.tipsCount}</b></div>
+        <div class="row"><span>Корзина</span><b>${summary.trashCount}</b></div>
+        ${renderCurrencyRows('ПОЛУЧЕНО', summary.cashTotals)}
+        ${renderCurrencyRows('ЧАЕВЫЕ', summary.tipTotals)}
+        <div class="line"></div>
+        <div class="muted">СУММА СТОЛОВ</div>
+        <div class="row"><span>Кассир</span><b>${formatReceiptMoney(summary.tableTotalsByRole.cashier, '֏')}</b></div>
+        <div class="row"><span>Менеджер</span><b>${formatReceiptMoney(summary.tableTotalsByRole.manager, '֏')}</b></div>
+        <div class="row"><span>Общая сумма</span><b>${formatReceiptMoney(summary.planAMD, '֏')}</b></div>
+        <div class="row"><span>В кассе + TIP</span><b>${formatReceiptMoney(summary.totalWithTipAMD, '֏')}</b></div>
+        <div class="row"><span>Недоплата</span><b>${formatReceiptMoney(summary.shortageAMD, '֏')}</b></div>
+        <div class="row total"><span>Разница</span><b>${formatReceiptMoney(summary.finalDiffAMD, '֏')}</b></div>
+    `;
+}
+
+async function openWeeklyReportPrint() {
+    if (currentRole !== 'admin' && currentRole !== 'developer') {
+        recoverAmountInput(false);
+        return;
+    }
+    lastWeeklyPrintShifts = await loadShiftArchiveForReports();
+    shiftPrintMode = "week";
+    renderWeeklyPrintReport(lastWeeklyPrintShifts);
+    const finishBtn = document.getElementById('shiftFinishBtn');
+    if (finishBtn) finishBtn.style.display = 'none';
+    const overlay = document.getElementById('shiftOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function toggleShiftCard(id) {
+    openedShiftId = Number(openedShiftId) === Number(id) ? null : Number(id);
+    renderShiftArchive();
+}
+
+async function renderShiftArchive() {
+    const list = document.getElementById('shiftArchiveList');
+    if (!list) return;
+
+    const reportShifts = await loadShiftArchiveForReports();
+    renderWeeklyShiftReport(reportShifts);
+
+    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
+    shifts = reportShifts
+        .filter(shift => !query
+            || String(shift.title || '').toLowerCase().includes(query)
+            || String(shift.date || '').toLowerCase().includes(query)
+            || String(shift.time || '').toLowerCase().includes(query)
+            || String(shift.users || shift.operator || '').toLowerCase().includes(query))
+        .filter(shiftUsesCurrency);
+
+    if (!shifts.length) {
+        list.innerHTML = `<div style="padding: 12px; color: #666;">Архив смен пуст</div>`;
+        return;
+    }
+
+    list.innerHTML = shifts.map(shift => {
+        const summary = shift.summary || {};
+        const computedSummary = buildSummaryFromShiftItems(shift);
+        const tableTotalsByRole = summary.tableTotalsByRole || computedSummary.tableTotalsByRole || emptyTableTotalsByRole();
+        const planAMDForShift = Object.prototype.hasOwnProperty.call(summary, 'planAMD')
+            ? summary.planAMD
+            : computedSummary.planAMD;
+        const isOpen = Number(openedShiftId) === Number(shift.id);
+        const people = shift.people || buildShiftPeople(String(shift.users || shift.operator || '').split(',').map(name => name.trim()), shift.operator, '');
+        const peopleLabel = peopleNamesForShift(people, shift.users || shift.operator || '');
+        const showClosedBy = people?.closedBy?.role !== 'developer' && people?.closedBy?.name !== 'Разработка';
+        const closedByLabel = showClosedBy && people?.closedBy?.name
+            ? `${people.closedBy.name}${people.closedBy.role ? ` (${roleLabel(people.closedBy.role)})` : ''}`
+            : '';
+        const bills = filterBillsByCurrency(sortNewestFirst(Array.isArray(shift.bills) ? shift.bills : []));
+        const tips = historyCurrencyFilter === 'ALL'
+            ? sortNewestFirst(Array.isArray(shift.tips) ? shift.tips : [])
+            : sortNewestFirst(Array.isArray(shift.tips) ? shift.tips : []).filter(tip => String(tip.curr || '') === historyCurrencyFilter);
+        const trash = filterBillsByCurrency(sortNewestFirst(Array.isArray(shift.trash) ? shift.trash : []));
+        const billRows = bills.length
+            ? bills.map(item => `
+                <div class="history-item ${item.isSplit ? 'split-operation' : ''} ${item.isShortage ? 'shortage-item' : ''}">
+                    <div style="font-size:9px;color:#999;">${item.date || ''} ${item.time || ''} | 👤 ${item.user || ''}</div>
+                    <b>${item.billAmd || 0} ֏</b>
+                    ${renderBillDetails(item)}
+                </div>`).join('')
+            : `<div style="color:#777;">Чеков по фильтру нет</div>`;
+        const trashRows = trash.length
+            ? trash.map(item => `
+                <div class="history-item ${item.isSplit ? 'split-operation' : ''} shortage-item">
+                    <div style="font-size:9px;color:#999;">${item.date || ''} ${item.time || ''} | 👤 ${item.user || ''} ${item.deletedAt ? `| удалён ${item.deletedAt}` : ''}</div>
+                    <b>${item.billAmd || 0} ֏</b>
+                    ${renderBillDetails(item)}
+                </div>`).join('')
+            : `<div style="color:#777;">Удалённых чеков нет</div>`;
+        const tipRows = tips.length
+            ? tips.map(tip => `<div style="font-size:12px;margin-top:4px;"><b style="color:#b58100;">+ ${tip.val || 0} ${tip.curr || ''}</b> | ${tip.user || ''}</div>`).join('')
+            : `<div style="color:#777;">TIP по фильтру нет</div>`;
+
+        return `
+            <div class="shift-card ${isOpen ? 'open' : ''}">
+                <div class="shift-card-title" onclick="toggleShiftCard(${Number(shift.id)})">
+                    <span>${escapeHtml(shift.date || '')} ${escapeHtml(shift.time || '')}</span>
+                    <span>${escapeHtml(peopleLabel || shift.operator || '')}</span>
+                </div>
+                <div class="shift-card-summary">
+                    ${closedByLabel ? `<div>Закрыл: <b>${escapeHtml(closedByLabel)}</b></div>` : ''}
+                    <div>Админы: <b>${escapeHtml((people.admins || []).join(', ') || '-')}</b></div>
+                    <div>Кассиры: <b>${escapeHtml((people.cashiers || []).join(', ') || '-')}</b></div>
+                    <div>Чеки: <b>${summary.billsCount ?? bills.length}</b> | TIP: <b>${summary.tipsCount ?? tips.length}</b> | Удалено: <b>${trash.length}</b></div>
+                    <div>Сумма столов: <b>${formatAmd(planAMDForShift)}</b></div>
+                    <div style="font-size:11px;color:#555;">Кассир: <b>${formatAmd(tableTotalsByRole.cashier)}</b> | Менеджер: <b>${formatAmd(tableTotalsByRole.manager)}</b></div>
+                    <div>В кассе + TIP: <b>${formatAmd(summary.totalWithTipAMD)}</b></div>
+                    <div>Разница: <b>${formatAmd(summary.finalDiffAMD)}</b></div>
+                </div>
+                <div class="shift-card-details">
+                    <div style="font-weight:900;margin-bottom:5px;">Чеки</div>
+                    ${billRows}
+                    <div style="font-weight:900;margin:8px 0 5px;">TIP</div>
+                    ${tipRows}
+                    <div style="font-weight:900;margin:8px 0 5px;">Удалённые чеки</div>
+                    ${trashRows}
+                </div>
+            </div>`;
+    }).join('');
+}
+
+async function clearCurrentWeekHistory() {
+    if (currentRole !== 'developer' && currentRole !== 'admin') return;
+    const weekKey = weekKeyForDate();
+    const ok = await showAppConfirm({
+        title: 'Недельный отчет',
+        message: `Очистить архив смен за текущую неделю (${weekKey})? Активные операции и общая история не трогаются.`,
+        okText: 'Очистить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('clear-week-history', { user: currentOperator, role: currentRole, weekKey });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Недельный отчет', message: result?.error || 'Не удалось очистить недельный отчет', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+        writeLocalList(DB_SHIFT_ARCHIVE, readLocalList(DB_SHIFT_ARCHIVE).filter(shift => String(shift.weekKey || '') !== String(weekKey)));
+        await renderShiftArchive();
+        recoverAmountInput(false);
+    } catch (err) {
+        await showAppMessage({ title: 'Недельный отчет', message: 'Ошибка очистки: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+function openManualTip() {
+    const overlay = document.getElementById('manualTipOverlay');
+    const input = document.getElementById('manualTipAmount');
+    if (overlay) overlay.style.display = 'flex';
+    if (input) input.value = '';
+    setManualTipCurrency(document.getElementById('manualTipCurr')?.value || 'USD');
+    setTimeout(() => {
+        input?.focus({ preventScroll: true });
+        input?.select();
+    }, 0);
+}
+
+function closeManualTip() {
+    const overlay = document.getElementById('manualTipOverlay');
+    if (overlay) overlay.style.display = 'none';
+    recoverAmountInput(false);
+}
+
+function setManualTipCurrency(curr) {
+    const input = document.getElementById('manualTipCurr');
+    if (input) input.value = curr;
+    ['RUB', 'USD', 'EUR'].forEach(code => {
+        document.getElementById(`manual-tip-${code}`)?.classList.toggle('active', code === curr);
+    });
+}
+
+async function saveManualTip() {
+    const curr = document.getElementById('manualTipCurr')?.value || 'USD';
+    const amountInput = document.getElementById('manualTipAmount');
+    const amount = parseFloat(amountInput?.value) || 0;
+    if (!(amount > 0)) {
+        await showAppMessage({ title: 'TIP', message: 'Введите сумму TIP', okText: 'OK' });
+        setTimeout(() => {
+            amountInput?.focus({ preventScroll: true });
+            amountInput?.select();
+        }, 0);
+        return;
+    }
+
+    const now = new Date();
+    const tipEntry = {
+        id: Date.now(),
+        date: now.toLocaleDateString('ru-RU'),
+        time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        val: amount,
+        curr,
+        amd: amount * rateForCurrency(curr),
+        user: currentOperator,
+        manual: true
+    };
+    writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
+    writeLocalList(DB_TIPS, personalTipsFrom(readLocalList(DB_ALL_TIPS)));
+    ipcRenderer.send('save-tip', tipEntry);
+    closeManualTip();
+    if (activeTab === 'tips') await renderHistory();
+    updateTotals();
+}
+
+async function renderHistory() {
+    const list = document.getElementById('historyList');
+    if (!list) return;
+
+    const bills = readLocalList(DB_BILLS);
+    const storedAllBills = readLocalList(DB_ALL_BILLS);
+    const allBills = storedAllBills;
+    const tips = readLocalList(DB_TIPS);
+    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
+    const billMatches = i => !query
+        || String(i.billAmd || '').includes(query)
+        || String(i.time || '').includes(query)
+        || String(i.date || '').includes(query)
+        || String(i.user || '').toLowerCase().includes(query);
+
+    if (activeTab === 'bills') {
+        let filtered = sortNewestFirst(bills).filter(billMatches);
+        if (!filtered.length) {
+            list.innerHTML = `<div style="padding: 12px; color: #666;">Операций нет</div>`;
+            return;
+        }
+
+        list.innerHTML = filtered.map(i => `
+            <div class="history-item ${i.isSplit ? 'split-operation' : ''} ${i.isShortage ? 'shortage-item' : ''}">
+                ${renderDeleteButton(i.id)}
+                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+                <b>${i.billAmd} ֏</b>
+                ${renderBillDetails(i)}
+            </div>`).join('');
+    } else if (activeTab === 'history') {
+        let filtered = filterBillsByCurrency(sortNewestFirst(allBills).filter(billMatches));
+        if (!filtered.length) {
+            list.innerHTML = `<div style="padding: 12px; color: #666;">История пуста</div>`;
+            return;
+        }
+        list.innerHTML = filtered.map(i => `
+            <div class="history-item ${i.isSplit ? 'split-operation' : ''} ${i.isShortage ? 'shortage-item' : ''}">
+                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+                <b>${i.billAmd} ֏</b>
+                ${renderBillDetails(i)}
+            </div>`).join('');
+    } else {
+        const filtered = sortNewestFirst(tips).filter(i => !query
+            || String(i.val || '').includes(query)
+            || String(i.curr || '').toLowerCase().includes(query)
+            || String(i.time || '').includes(query)
+            || String(i.date || '').includes(query)
+            || String(i.user || '').toLowerCase().includes(query));
+
+        if (!filtered.length) {
+            list.innerHTML = `<div style="padding: 12px; color: #666;">TIP пусто</div>`;
+            return;
+        }
+
+        list.innerHTML = filtered.map(i => `
+            <div class="history-item" style="border-left-color: #00ADB5">
+                ${renderDeleteButton(i.id, 'tips')}
+                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user}</div>
+                <b style="color: #00ADB5">+ ${i.val} ${i.curr}</b>
+            </div>`).join('');
+    }
+}
+
+async function renderSplitPayments() {
+    const list = document.getElementById('splitList');
+    if (!list) return;
+
+    const splits = await ipcRenderer.invoke('get-split-payments') || [];
+    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
+    const filtered = sortNewestFirst(splits).filter(i => (i.billAmd?.toString().includes(query) || i.date?.includes(query) || i.time?.includes(query) || i.user?.toLowerCase().includes(query)));
+
+    if (!filtered.length) {
+        list.innerHTML = `<div style="padding: 12px; color: #666;">Нет разделённых оплат</div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.map(i => `
+        <div class="history-item ${i.status === 'удалено' ? 'shortage-item' : ''}">
+            ${canDeleteItems() ? `<button class="del-btn" onclick="deleteSplitPayment(${i.id})">❌</button>` : ''}
+            <div style="font-size:9px;color:#999;">${i.date} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+            <b>${i.billAmd} ֏</b>
+            ${renderBillDetails(i)}
+        </div>`).join('');
+}
+
+async function deleteSplitPayment(id) {
+    if (!canDeleteItems()) {
+        recoverAmountInput(false);
+        return;
+    }
+    const ok = await showAppConfirm({
+        title: 'Удаление',
+        message: 'Переместить разделённую оплату в корзину?',
+        okText: 'Удалить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+    if (!(await requireDeletePinIfNeeded())) return;
+    const splits = await ipcRenderer.invoke('get-split-payments') || [];
+    const split = splits.find(s => Number(s.id) === Number(id));
+    if (split) {
+        split.deletedAt = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+        split.status = "Удалено";
+        ipcRenderer.send('move-to-trash', split);
+        await ipcRenderer.invoke('delete-split-payment', id);
+    }
+    await renderCurrentList();
+    updateTotals();
+    prepareNewPaymentInput();
+}
+
+async function renderTrash() {
+    const list = document.getElementById('trash-list');
+    if (!list) return;
+
+    const allTrash = await ipcRenderer.invoke('get-trash-data') || [];
+    if (Array.isArray(allTrash)) {
+        writeLocalList(DB_ALL_TRASH, allTrash);
+        writeLocalList(DB_TRASH, personalTrashFrom(allTrash));
+    }
+    const trash = personalTrashFrom(allTrash);
+    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
+    const filtered = sortNewestFirst(trash).filter(i => (i.billAmd?.toString().includes(query) || i.time?.includes(query) || i.date?.includes(query) || i.user?.toLowerCase().includes(query)));
+
+    if (!filtered.length) {
+        list.innerHTML = `<div style="padding: 12px; color: #666;">Корзина пуста</div>`;
+        return;
+    }
+
+    list.innerHTML = filtered.map(i => `
+        <div class="history-item ${i.isSplit ? 'split-operation' : ''} ${i.isShortage ? 'shortage-item' : ''}">
+            ${canDeleteItems() ? `<button class="del-btn" onclick="restoreFromTrash(${i.id})">↩️</button>` : ''}
+            <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${i.deletedAt ? `| удалён ${i.deletedAt}` : ''}</div>
+            <b>${i.billAmd} ֏</b>
+            ${renderBillDetails(i)}
+        </div>`).join('');
+}
+
+ async function restoreFromTrash(id) {
+    if (!canDeleteItems()) {
+        recoverAmountInput(false);
+        return;
+    }
+    const trash = readLocalList(DB_TRASH);
+    const item = trash.find(i => Number(i.id) === Number(id));
+    if (!item) {
+        await showAppMessage({ title: 'Корзина', message: 'Чек не найден в корзине', okText: 'OK' });
+        recoverAmountInput(false);
+        return;
+    }
+
+    const restored = {
+        ...item,
+        status: 'Восстановлено',
+        restoredAt: new Date().toLocaleTimeString('ru-RU', { hour:'2-digit', minute:'2-digit' })
+    };
+    delete restored.deletedAt;
+
+    let bills = readLocalList(DB_BILLS);
+    bills = upsertLocal(bills, restored);
+    writeLocalList(DB_BILLS, bills);
+
+    const result = await ipcRenderer.invoke('restore-from-trash', item);
+    if (!result || result.ok === false) {
+        await showAppMessage({ title: 'Корзина', message: result?.error || 'Не удалось восстановить чек', okText: 'OK' });
+        recoverAmountInput(false);
+        return;
+    }
+    await syncBillsFromDisk();
+    restoreTipForBill(restored);
+    await renderTrash();
+    await renderHistory();
+    updateTotals();
+    prepareNewPaymentInput();
+}
+
+async function deleteToTrash(id, type = 'bills') {
+    if (!canDeleteItems()) {
+        recoverAmountInput(false);
+        return;
+    }
+    const msg = type === 'tips' ? "Удалить чаевые?" : "Переместить чек в корзину?";
+    const ok = await showAppConfirm({
+        title: 'Удаление',
+        message: msg,
+        okText: 'Удалить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+    if (!(await requireDeletePinIfNeeded())) return;
+
+    try {
+        const dbName = type === 'tips' ? DB_TIPS : DB_BILLS;
+        let items = JSON.parse(localStorage.getItem(dbName) || '[]');
+        const index = items.findIndex(i => Number(i.id) === Number(id));
+        let item = index !== -1 ? items[index] : null;
+
+        if (!item && type === 'bills') {
+            const fileBills = await ipcRenderer.invoke('get-history-data') || [];
+            item = fileBills.find(i => Number(i.id) === Number(id));
+        }
+
+        if (!item) {
+            await showAppMessage({ title: 'Удаление', message: 'Чек не найден в активных операциях. Обновляю список.', okText: 'OK' });
+            if (type === 'bills') await syncBillsFromDisk();
+            await renderCurrentList();
+            updateTotals();
+            recoverAmountInput(false);
+            return;
+        }
+
+        if (item.tipAmount > 0) {
+            removeTipsForBill(item);
+        }
+
+        if (type === 'bills') {
+            const result = await ipcRenderer.invoke('delete-bill', { id, item });
+            if (!result || result.ok === false) {
+                await showAppMessage({ title: 'Удаление', message: result?.error || 'Не удалось переместить чек в корзину', okText: 'OK' });
+                recoverAmountInput(false);
+                return;
+            }
+            await syncBillsFromDisk();
+        } else {
+            ipcRenderer.send('delete-tip', item);
+            items = items.filter(i => Number(i.id) !== Number(id));
+            localStorage.setItem(dbName, JSON.stringify(items));
+        }
+
+        await renderCurrentList();
+        updateTotals();
+        if (type === 'bills') {
+            prepareNewPaymentInput();
+        } else {
+            recoverAmountInput(false);
+        }
+    } catch (err) {
+        console.error("Ошибка удаления чека:", err);
+        await showAppMessage({ title: 'Удаление', message: 'Ошибка удаления: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+function formatReceiptNumber(value) {
+    return Math.round(Number(value) || 0).toLocaleString('ru-RU');
+}
+
+function formatReceiptMoney(value, curr) {
+    return `${formatReceiptNumber(value)} ${curr}`;
+}
+
+function addPaymentToTotals(totals, curr, value) {
+    const key = curr || 'AMD';
+    if (!Object.prototype.hasOwnProperty.call(totals, key)) totals[key] = 0;
+    totals[key] += Number(value) || 0;
+}
+
+function buildShiftSummary() {
+    const bills = readLocalList(DB_BILLS).filter(item => !isDeletedItem(item) && !isClosedShiftItem(item));
+    const tips = readLocalList(DB_TIPS).filter(item => !isDeletedItem(item));
+    const trash = readLocalList(DB_TRASH);
+    const cashTotals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
+    const tipTotals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
+    const tableTotalsByRole = emptyTableTotalsByRole();
+    let planAMD = 0;
+    let receivedAMD = 0;
+    let shortageAMD = 0;
+    let tipTotalAMD = 0;
+
+    bills.forEach(bill => {
+        const billAmd = Number(bill.billAmd) || 0;
+        planAMD += billAmd;
+        addTableTotalByRole(tableTotalsByRole, bill, billAmd);
+        receivedAMD += Number(bill.receivedAMD) || 0;
+        shortageAMD += Number(bill.shortageAMD) || 0;
+
+        if (Array.isArray(bill.payments)) {
+            bill.payments.forEach(payment => addPaymentToTotals(cashTotals, payment.curr, payment.value));
+        } else {
+            addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
+        }
+    });
+
+    tips.forEach(tip => {
+        addPaymentToTotals(tipTotals, tip.curr, tip.val);
+        tipTotalAMD += Number(tip.amd) || ((Number(tip.val) || 0) * rateForCurrency(tip.curr || 'AMD'));
+    });
+
+    const now = new Date();
+    return {
+        operator: currentOperator || 'Не выбран',
+        role: roleLabel(currentRole),
+        date: now.toLocaleDateString('ru-RU'),
+        time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
+        rates: {
+            RUB: parseFloat(document.getElementById('rRUB')?.value) || 0,
+            USD: parseFloat(document.getElementById('rUSD')?.value) || 0,
+            EUR: parseFloat(document.getElementById('rEUR')?.value) || 0
+        },
+        billsCount: bills.length,
+        tipsCount: tips.length,
+        trashCount: trash.length,
+        cashTotals,
+        tipTotals,
+        tableTotalsByRole,
+        planAMD,
+        receivedAMD,
+        shortageAMD,
+        tipTotalAMD,
+        totalWithTipAMD: receivedAMD + tipTotalAMD,
+        finalDiffAMD: (receivedAMD + tipTotalAMD) - planAMD
+    };
+}
+
+function renderCurrencyRows(title, totals) {
+    return `
+        <div class="line"></div>
+        <div class="muted">${title}</div>
+        <div class="row"><span>RUB</span><b>${formatReceiptNumber(totals.RUB)}</b></div>
+        <div class="row"><span>USD</span><b>${formatReceiptNumber(totals.USD)}</b></div>
+        <div class="row"><span>EUR</span><b>${formatReceiptNumber(totals.EUR)}</b></div>
+        <div class="row"><span>AMD</span><b>${formatReceiptNumber(totals.AMD)}</b></div>
+    `;
+}
+
+function renderShiftReport() {
+    const summary = buildShiftSummary();
+    const report = document.getElementById('shiftPrintArea');
+    if (!report) return;
+
+    report.innerHTML = `
+        <h2>ЗАКРЫТИЕ СМЕНЫ</h2>
+        <div class="row"><span>Дата</span><b>${escapeHtml(summary.date)}</b></div>
+        <div class="row"><span>Время</span><b>${escapeHtml(summary.time)}</b></div>
+        <div class="row"><span>Сотрудник</span><b>${escapeHtml(summary.operator)}</b></div>
+        <div class="row"><span>Роль</span><b>${escapeHtml(summary.role)}</b></div>
+        <div class="line"></div>
+        <div class="row"><span>Чеков</span><b>${summary.billsCount}</b></div>
+        <div class="row"><span>TIP</span><b>${summary.tipsCount}</b></div>
+        <div class="row"><span>Корзина</span><b>${summary.trashCount}</b></div>
+        ${renderCurrencyRows('ПОЛУЧЕНО', summary.cashTotals)}
+        ${renderCurrencyRows('ЧАЕВЫЕ', summary.tipTotals)}
+        <div class="line"></div>
+        <div class="muted">СУММА СТОЛОВ</div>
+        <div class="row"><span>Кассир</span><b>${formatReceiptMoney(summary.tableTotalsByRole.cashier, '֏')}</b></div>
+        <div class="row"><span>Менеджер</span><b>${formatReceiptMoney(summary.tableTotalsByRole.manager, '֏')}</b></div>
+        <div class="row"><span>Общая сумма</span><b>${formatReceiptMoney(summary.planAMD, '֏')}</b></div>
+        <div class="row"><span>В кассе + TIP</span><b>${formatReceiptMoney(summary.totalWithTipAMD, '֏')}</b></div>
+        <div class="row"><span>Недоплата</span><b>${formatReceiptMoney(summary.shortageAMD, '֏')}</b></div>
+        <div class="row total"><span>Разница</span><b>${formatReceiptMoney(summary.finalDiffAMD, '֏')}</b></div>
+        <div class="line"></div>
+        <div class="muted">Курс: ₽ ${summary.rates.RUB} | $ ${summary.rates.USD} | € ${summary.rates.EUR}</div>
+    `;
+}
+
+function openShiftReport() {
+    if (currentRole !== 'admin' && currentRole !== 'developer') {
+        recoverAmountInput(false);
+        return;
+    }
+    shiftPrintMode = "shift";
+    renderShiftReport();
+    const finishBtn = document.getElementById('shiftFinishBtn');
+    if (finishBtn) finishBtn.style.display = '';
+    const overlay = document.getElementById('shiftOverlay');
+    if (overlay) overlay.style.display = 'flex';
+}
+
+function closeShiftOverlay() {
+    const overlay = document.getElementById('shiftOverlay');
+    if (overlay) overlay.style.display = 'none';
+    const finishBtn = document.getElementById('shiftFinishBtn');
+    if (finishBtn) finishBtn.style.display = '';
+    recoverAmountInput(false);
+}
+
+async function printShiftReport() {
+    if (shiftPrintMode === "week") {
+        renderWeeklyPrintReport(lastWeeklyPrintShifts);
+    } else {
+        renderShiftReport();
+    }
+    try {
+        const result = await ipcRenderer.invoke('print-shift-report');
+        if (result?.ok) {
+            recoverAmountInput(false);
+            return;
+        }
+    } catch {}
+    window.print();
+    setTimeout(() => recoverAmountInput(false), 100);
+}
+
+function applyClosedShiftLocalState(user) {
+    const userName = String(user || currentOperator || '');
+    const closeAll = currentRole === 'admin' || currentRole === 'developer';
+    const belongsToShift = item => closeAll || String(item?.user || '') === userName;
+    const mergedBills = readLocalList(DB_BILLS).reduce(
+        (list, item) => upsertLocal(list, item),
+        readLocalList(DB_ALL_BILLS)
+    );
+    const mergedTrash = readLocalList(DB_TRASH).reduce(
+        (list, item) => upsertLocal(list, item),
+        readLocalList(DB_ALL_TRASH)
+    );
+
+    writeLocalList(DB_ALL_BILLS, mergedBills.filter(item => !belongsToShift(item)));
+    writeLocalList(DB_BILLS, []);
+    writeLocalList(DB_TIPS, []);
+    writeLocalList(DB_TRASH, []);
+    writeLocalList(DB_SPLITS, readLocalList(DB_SPLITS).filter(item => !belongsToShift(item)));
+    writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(item => !belongsToShift(item)));
+    writeLocalList(DB_ALL_TRASH, mergedTrash.filter(item => !belongsToShift(item)));
+    if (closeAll) {
+        localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+        writeLocalList(DB_ALL_BILLS, []);
+    }
+}
+
+function applyDeveloperHistoryClearLocal(user) {
+    const userName = String(user || currentOperator || 'Разработка');
+    const isDeveloperItem = item => String(item?.user || '') === userName;
+
+    writeLocalList(DB_ALL_BILLS, readLocalList(DB_ALL_BILLS).filter(item => !isDeveloperItem(item)));
+    writeLocalList(DB_BILLS, readLocalList(DB_BILLS).filter(item => !isDeveloperItem(item)));
+    writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(item => !isDeveloperItem(item)));
+    writeLocalList(DB_TIPS, readLocalList(DB_TIPS).filter(item => !isDeveloperItem(item)));
+    writeLocalList(DB_ALL_TRASH, []);
+    writeLocalList(DB_TRASH, []);
+    writeLocalList(DB_SPLITS, readLocalList(DB_SPLITS).filter(item => !isDeveloperItem(item)));
+}
+
+function applyCommonHistoryClearLocal() {
+    localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+    writeLocalList(DB_ALL_BILLS, []);
+}
+
+async function clearDeveloperHistory() {
+    if (currentRole !== 'developer') return;
+    const ok = await showAppConfirm({
+        title: 'Очистить тесты',
+        message: 'Удалить тестовые записи разработчика и полностью очистить корзину? История, операции и TIP других сотрудников останутся на месте.',
+        okText: 'Очистить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('clear-developer-history', { user: currentOperator });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Очистить тесты', message: result?.error || 'Не удалось очистить тестовую историю', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+
+        applyDeveloperHistoryClearLocal(currentOperator);
+        await syncBillsFromDisk();
+        await renderCurrentList();
+        updateTotals();
+        prepareNewPaymentInput();
+    } catch (err) {
+        await showAppMessage({ title: 'Очистить тесты', message: 'Ошибка очистки тестовой истории: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+async function clearCommonHistory() {
+    if (currentRole !== 'developer') return;
+    const ok = await showAppConfirm({
+        title: 'Общая история',
+        message: 'Очистить общую историю для всех сотрудников? Операции, TIP и корзина останутся на месте. Новые операции после очистки снова будут попадать в историю.',
+        okText: 'Очистить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await ipcRenderer.invoke('clear-common-history', { user: currentOperator });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Общая история', message: result?.error || 'Не удалось очистить общую историю', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+
+        applyCommonHistoryClearLocal();
+        if (activeTab === 'history') await renderHistory();
+        updateTotals();
+        prepareNewPaymentInput();
+    } catch (err) {
+        await showAppMessage({ title: 'Общая история', message: 'Ошибка очистки общей истории: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+async function finishShift() {
+    if (!currentOperator) return;
+    if (currentRole !== 'admin' && currentRole !== 'developer') {
+        await showAppMessage({ title: 'Закрыть смену', message: 'Закрывать смену может только администратор.', okText: 'OK' });
+        closeShiftOverlay();
+        return;
+    }
+    const closesAll = currentRole === 'admin' || currentRole === 'developer';
+    const ok = await showAppConfirm({
+        title: 'Закрыть смену',
+        message: closesAll
+            ? 'Будет закрыта общая смена: операции, TIP, корзина и записи этой смены из общей истории очистятся, а сам день останется в архиве СМЕНЫ.'
+            : 'Операции, TIP, корзина и записи этой смены из общей истории будут очищены, а сам день останется в архиве СМЕНЫ.',
+        okText: 'Закрыть'
+    });
+    if (!ok) {
+        closeShiftOverlay();
+        return;
+    }
+
+    try {
+        const shiftSnapshot = buildShiftArchiveEntry(currentOperator, buildShiftSummary());
+        const result = await ipcRenderer.invoke('close-shift', {
+            user: currentOperator,
+            role: currentRole,
+            summary: shiftSnapshot.summary,
+            people: shiftSnapshot.people
+        });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Закрыть смену', message: result?.error || 'Не удалось закрыть смену', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+
+        if (result.shift) saveShiftArchiveLocal(result.shift);
+        applyClosedShiftLocalState(currentOperator);
+        await syncBillsFromDisk();
+        activeTab = 'bills';
+        document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
+        const historyView = document.getElementById('history-view');
+        const trashView = document.getElementById('trash-view');
+        if (historyView) historyView.style.display = 'block';
+        if (trashView) trashView.style.display = 'none';
+        closeShiftOverlay();
+        await renderHistory();
+        updateTotals();
+        prepareNewPaymentInput();
+        startAutoSync();
+    } catch (err) {
+        await showAppMessage({ title: 'Закрыть смену', message: 'Ошибка закрытия смены: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+async function updateTotals() {
+    const bills = JSON.parse(localStorage.getItem(DB_BILLS) || '[]');
+    const tips = JSON.parse(localStorage.getItem(DB_TIPS) || '[]');
+
+    let totals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
+    let tipTotals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
+    let tableTotalsByRole = emptyTableTotalsByRole();
+    let planAMD = 0;
+    let shortageTotal = 0;
+
+    // Считаем чеки
+    bills.forEach(b => {
+        const billAmd = parseFloat(b.billAmd) || 0;
+        planAMD += billAmd;
+        addTableTotalByRole(tableTotalsByRole, b, billAmd);
+        if (b.payCurr === 'RUB') totals.RUB += (parseFloat(b.payVal) || 0);
+        if (b.payCurr === 'USD') totals.USD += (parseFloat(b.payVal) || 0);
+        if (b.payCurr === 'EUR') totals.EUR += (parseFloat(b.payVal) || 0);
+        totals.AMD += (parseFloat(b.receivedAMD) || 0);
+        shortageTotal += (parseFloat(b.shortageAMD) || 0);
+    });
+
+    // Считаем чаевые
+    tips.forEach(t => {
+        if (tipTotals.hasOwnProperty(t.curr)) tipTotals[t.curr] += (parseFloat(t.val) || 0);
+        tipTotals.AMD += (parseFloat(t.amd) || 0);
+    });
+
+    const updateEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = Math.round(val).toLocaleString();
+    };
+
+    updateEl('sumRUB', totals.RUB);
+    updateEl('sumUSD', totals.USD);
+    updateEl('sumEUR', totals.EUR);
+    updateEl('sumAMD', totals.AMD);
+
+    const updateAmdEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = Math.round(val).toLocaleString() + " ֏";
+    };
+
+    updateAmdEl('totalBillsAMD', planAMD);
+    updateAmdEl('totalBillsCashierAMD', tableTotalsByRole.cashier);
+    updateAmdEl('totalBillsManagerAMD', tableTotalsByRole.manager);
+    updateAmdEl('tipTabTotalBillsAMD', planAMD);
+    updateAmdEl('tipTabTotalBillsCashierAMD', tableTotalsByRole.cashier);
+    updateAmdEl('tipTabTotalBillsManagerAMD', tableTotalsByRole.manager);
+    if (document.getElementById('totalWithTip'))
+        document.getElementById('totalWithTip').innerText = Math.round(totals.AMD + tipTotals.AMD).toLocaleString() + " ֏";
+    if (document.getElementById('totalShortage'))
+        document.getElementById('totalShortage').innerText = Math.round(shortageTotal).toLocaleString() + " ֏";
+    if (document.getElementById('finalDiff'))
+        document.getElementById('finalDiff').innerText = Math.round((totals.AMD + tipTotals.AMD) - planAMD).toLocaleString() + " ֏";
+
+    updateEl('tipRUB', tipTotals.RUB);
+    updateEl('tipUSD', tipTotals.USD);
+    updateEl('tipEUR', tipTotals.EUR);
+    updateEl('tipAMD', tipTotals.AMD);
+    if(document.getElementById('tipTotalAMD'))
+        document.getElementById('tipTotalAMD').innerText = Math.round(tipTotals.AMD).toLocaleString() + " ֏";
+}
+
+document.addEventListener('keydown', async event => {
+    if (event.defaultPrevented) return;
+
+    const target = event.target;
+    if (event.key !== 'Enter') return;
+    if (!shouldHandleSaveHotkey(target)) return;
+
+    const targetId = target?.id || '';
+    if (isTypingField(target) && !['priceAMD', 'given'].includes(targetId)) return;
+
+    event.preventDefault();
+    await processSave();
+});
+</script>
+</body>
+</html>
+
