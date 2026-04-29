@@ -114,7 +114,10 @@
     .app-prompt-cancel { background: #edf1f4; color: #636e72; }
     .app-prompt-ok { background: #27ae60; color: #fff; }
 
-    .user-badge { background: #4a76c5; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; margin-bottom: 10px; display: inline-block; font-weight: bold; }
+    .user-top-line { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+    .user-badge { background: #4a76c5; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; display: inline-block; font-weight: bold; }
+    .emergency-close-btn { display: none; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 50%; background: #d63031; color: #fff; font-size: 15px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; line-height: 1; }
+    .emergency-close-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
 
     .rates-header { background: rgba(255,255,255,0.65); padding: 6px 8px; border-radius: 8px; margin-bottom: 8px; display: flex; gap: 6px; border: 1px solid #dde4ea; box-shadow: none; opacity: 0.82; }
     .rate-item { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
@@ -512,7 +515,10 @@ body.silent-refresh .trash-item {
 
 <div class="wrapper" id="mainWrapper">
     <div class="calc-container">
-        <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
+        <div class="user-top-line">
+            <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
+            <button type="button" class="emergency-close-btn" id="emergencyCloseBtn" title="Экстренно закрыть программу на обоих ПК" onclick="emergencyCloseApp()">⏻</button>
+        </div>
 
         <div class="rates-header">
             <div class="rate-item"><label>₽</label><input type="number" id="rRUB" value="3.7" oninput="calculate(); scheduleRateSave()"></div>
@@ -2495,6 +2501,24 @@ async function toggleAlwaysOnTopMode() {
     }
 }
 
+async function emergencyCloseApp() {
+    const ok = await showAppConfirm({
+        title: 'Экстренное закрытие',
+        message: 'Закрыть программу сразу на этом ПК и на втором ПК в локальной сети?',
+        okText: 'Закрыть'
+    });
+    if (!ok) return;
+    try {
+        await ipcRenderer.invoke('emergency-close', {
+            user: currentOperator,
+            role: currentRole,
+            requestedAt: new Date().toISOString()
+        });
+    } catch (err) {
+        console.error('Emergency close failed:', err);
+    }
+}
+
 function workspaceRenderSignature() {
     return JSON.stringify({
         tab: activeTab,
@@ -2626,12 +2650,14 @@ function updateDeveloperToolsVisibility() {
     const closeShiftBtn = document.getElementById('closeShiftOpenBtn');
     const weekClearBtn = document.getElementById('weekClearBtn');
     const weekPrintBtn = document.getElementById('weekPrintBtn');
+    const emergencyCloseBtn = document.getElementById('emergencyCloseBtn');
     const tabsBox = document.querySelector('.tabs');
     if (cleanBtn) cleanBtn.style.display = isDeveloper ? 'block' : 'none';
     if (commonHistoryBtn) commonHistoryBtn.style.display = isDeveloper ? 'block' : 'none';
     if (closeShiftBtn) closeShiftBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekClearBtn) weekClearBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
+    if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift ? 'inline-flex' : 'none';
     if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
         ? 'repeat(5, minmax(0, 1fr))'
         : 'repeat(4, minmax(0, 1fr))';

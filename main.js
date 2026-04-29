@@ -767,6 +767,7 @@ const DEFAULT_NETWORK_CONFIG = {
 let networkServer = null;
 let networkServerPort = null;
 let networkServerError = '';
+const emergencyCloseSeen = new Set();
 
 function normalizeNetworkConfig(config = {}) {
     const rawMode = String(config.mode || DEFAULT_NETWORK_CONFIG.mode);
@@ -946,6 +947,17 @@ async function handleNetworkRequest(req, res) {
         return;
     }
 
+    if (req.method === 'POST' && req.url === '/fx/emergency-close') {
+        try {
+            const body = await readRequestJson(req);
+            const result = await emergencyCloseAll(body);
+            sendJson(res, 200, result);
+        } catch (err) {
+            sendJson(res, 500, { ok: false, error: err.message || String(err) });
+        }
+        return;
+    }
+
     if (req.method === 'POST' && req.url === '/fx/ipc') {
         try {
             if (readNetworkConfig().mode !== 'host') {
@@ -1079,6 +1091,59 @@ async function findNetworkHosts(searchInput = {}) {
 
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
     return found;
+}
+
+function scheduleEmergencyQuit() {
+    setTimeout(() => {
+        try {
+            globalShortcut.unregisterAll();
+            BrowserWindow.getAllWindows().forEach(window => window.close());
+        } finally {
+            app.quit();
+        }
+    }, 250);
+}
+
+async function sendEmergencyCloseToPeer(host, port, payload) {
+    try {
+        await requestJson('POST', `http://${host}:${port}/fx/emergency-close`, payload, 900);
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+async function broadcastEmergencyClose(payload = {}) {
+    const config = readNetworkConfig();
+    const port = config.port;
+
+    if (config.mode === 'client' && config.host) {
+        await sendEmergencyCloseToPeer(config.host, port, payload);
+        return;
+    }
+
+    if (config.mode === 'host') {
+        const peers = await findNetworkHosts({ port });
+        await Promise.all(peers.map(peer => sendEmergencyCloseToPeer(peer.host, peer.port || port, payload)));
+    }
+}
+
+async function emergencyCloseAll(payload = {}) {
+    const emergencyId = String(payload.emergencyId || `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+    if (emergencyCloseSeen.has(emergencyId)) {
+        return { ok: true, duplicate: true, emergencyId };
+    }
+    emergencyCloseSeen.add(emergencyId);
+
+    const nextPayload = {
+        ...payload,
+        emergencyId,
+        requestedAt: payload.requestedAt || new Date().toISOString()
+    };
+
+    await broadcastEmergencyClose(nextPayload);
+    scheduleEmergencyQuit();
+    return { ok: true, emergencyId };
 }
 
 function historyClearBeforeId() {
@@ -1922,6 +1987,15 @@ ipcMain.handle('install-app-update', async (event, configInput) => {
     try {
         return await installAppUpdateFromHost(configInput || readNetworkConfig());
     } catch (err) {
+        return { ok: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('emergency-close', async (event, payload) => {
+    try {
+        return await emergencyCloseAll(payload || {});
+    } catch (err) {
+        scheduleEmergencyQuit();
         return { ok: false, error: err.message || String(err) };
     }
 });
