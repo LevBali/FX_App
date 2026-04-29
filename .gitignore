@@ -5,6 +5,8 @@ shift_backup_*/
 fx-*-smoke/
 GitHub_Release_*/
 github_release_*/
+FX_App_EXE_Test/
+FX_App_EXE_Test.zip
 
 *.sqlite
 *_bills.json

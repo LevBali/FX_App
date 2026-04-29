@@ -1774,7 +1774,7 @@ function createWindow() {
         }
     });
 
-    win.loadFile('index.html');
+    win.loadFile(path.join(folderPath, 'index.html'));
 }
 
 function alwaysOnTopState() {
