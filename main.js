@@ -29,6 +29,7 @@ const historyClearMarkerPath = path.join(folderPath, 'history_clear_marker.json'
 const networkConfigPath = path.join(folderPath, 'network_config.json');
 const authAccountsPath = path.join(folderPath, 'auth_accounts.json');
 const ratesSettingsPath = path.join(folderPath, 'rates_settings.json');
+const networkPeersPath = path.join(folderPath, 'network_peers.json');
 const sqlitePath = path.join(folderPath, 'fx_database.sqlite');
 const shiftArchivePath = path.join(folderPath, 'shift_archive.json');
 const APP_UPDATE_FILES = ['index.html', 'main.js', 'package.json', 'package-lock.json', 'start_fx.bat', 'publish_github.bat'];
@@ -138,6 +139,21 @@ function writeRatesSettings(value) {
     const rates = normalizeRates(value);
     writeJsonObjectFile(ratesSettingsPath, rates, DEFAULT_RATES);
     return rates;
+}
+
+function readNetworkPeers() {
+    const peers = readJsonObjectFile(networkPeersPath, { hosts: [] });
+    const hosts = Array.isArray(peers.hosts) ? peers.hosts : [];
+    return { hosts: hosts.map(host => String(host || '').trim()).filter(Boolean) };
+}
+
+function rememberNetworkPeer(host) {
+    const cleanHost = String(host || '').trim();
+    if (!cleanHost) return readNetworkPeers();
+    const peers = readNetworkPeers();
+    peers.hosts = [cleanHost, ...peers.hosts.filter(item => item !== cleanHost)].slice(0, 12);
+    writeJsonObjectFile(networkPeersPath, peers, { hosts: [] });
+    return peers;
 }
 
 function normalizeAuthStore(store = {}) {
@@ -1046,6 +1062,7 @@ async function testNetworkConnection(configInput) {
 
     try {
         const response = await requestJson('GET', `${hostBaseUrl(config)}/fx/status`, undefined, 2200);
+        rememberNetworkPeer(config.host);
         return { ok: true, message: 'Связь есть', remote: response, status: networkStatus(config) };
     } catch (err) {
         return { ok: false, message: err.message || 'Нет связи', status: networkStatus(config) };
@@ -1081,6 +1098,7 @@ async function findNetworkHosts(searchInput = {}) {
             try {
                 const response = await requestJson('GET', `http://${host}:${port}/fx/status`, undefined, 450);
                 if (response?.ok && response?.name === 'FX_App') {
+                    rememberNetworkPeer(host);
                     found.push({ host, port, name: response.name, role: response.role, status: response.status });
                 }
             } catch {
@@ -1097,34 +1115,51 @@ function scheduleEmergencyQuit() {
     setTimeout(() => {
         try {
             globalShortcut.unregisterAll();
-            BrowserWindow.getAllWindows().forEach(window => window.close());
+            BrowserWindow.getAllWindows().forEach(window => window.destroy());
         } finally {
             app.quit();
         }
-    }, 250);
+    }, 60);
 }
 
 async function sendEmergencyCloseToPeer(host, port, payload) {
     try {
-        await requestJson('POST', `http://${host}:${port}/fx/emergency-close`, payload, 900);
+        await requestJson('POST', `http://${host}:${port}/fx/emergency-close`, payload, 220);
         return true;
     } catch {
         return false;
     }
 }
 
-async function broadcastEmergencyClose(payload = {}) {
+function fastEmergencyHostCandidates(config) {
+    const candidates = new Set();
+    if (config.host) candidates.add(config.host);
+    readNetworkPeers().hosts.forEach(host => candidates.add(host));
+    localIPv4Addresses().forEach(ip => {
+        const parts = ip.split('.');
+        if (parts.length !== 4) return;
+        const prefix = parts.slice(0, 3).join('.');
+        ['2', '10', '20', '100', '101', '102', '150', '200'].forEach(last => {
+            const candidate = `${prefix}.${last}`;
+            if (candidate !== ip) candidates.add(candidate);
+        });
+    });
+    return Array.from(candidates);
+}
+
+function broadcastEmergencyClose(payload = {}) {
     const config = readNetworkConfig();
     const port = config.port;
 
     if (config.mode === 'client' && config.host) {
-        await sendEmergencyCloseToPeer(config.host, port, payload);
+        sendEmergencyCloseToPeer(config.host, port, payload);
         return;
     }
 
     if (config.mode === 'host') {
-        const peers = await findNetworkHosts({ port });
-        await Promise.all(peers.map(peer => sendEmergencyCloseToPeer(peer.host, peer.port || port, payload)));
+        fastEmergencyHostCandidates(config).forEach(host => {
+            sendEmergencyCloseToPeer(host, port, payload);
+        });
     }
 }
 
@@ -1141,7 +1176,7 @@ async function emergencyCloseAll(payload = {}) {
         requestedAt: payload.requestedAt || new Date().toISOString()
     };
 
-    await broadcastEmergencyClose(nextPayload);
+    broadcastEmergencyClose(nextPayload);
     scheduleEmergencyQuit();
     return { ok: true, emergencyId };
 }
