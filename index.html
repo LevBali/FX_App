@@ -364,11 +364,11 @@ body.silent-refresh .trash-item {
                 <div class="connection-row">
                     <div class="connection-field">
                         <label for="githubOwner">GitHub owner</label>
-                        <input id="githubOwner" type="text" placeholder="ваш логин или организация" autocomplete="off">
+                        <input id="githubOwner" type="password" placeholder="ваш логин или организация" autocomplete="off">
                     </div>
                     <div class="connection-field">
                         <label for="githubRepo">Repo</label>
-                        <input id="githubRepo" type="text" placeholder="FX_App" autocomplete="off">
+                        <input id="githubRepo" type="password" placeholder="FX_App" autocomplete="off">
                     </div>
                 </div>
                 <div class="connection-field">
@@ -1592,6 +1592,10 @@ function updateSourceLabel(source) {
     return source === 'github' ? 'GitHub' : 'LAN';
 }
 
+function maskSecret(value = '') {
+    return String(value || '').trim() ? '••••••' : '-';
+}
+
 function isLanConnected(result = {}) {
     const config = normalizeNetworkConfig(result?.config || result?.status?.config || collectNetworkConfig());
     if (config.mode === 'local') return false;
@@ -1623,7 +1627,7 @@ function updateConnectionSummary(config = collectNetworkConfig()) {
         ? ` | IP: ${normalized.host || 'не указан'}:${normalized.port}`
         : ` | порт: ${normalized.port}`;
     const githubText = normalized.updateSource === 'github'
-        ? `<br>GitHub: ${normalized.githubOwner || '-'} / ${normalized.githubRepo || '-'} / ${normalized.githubBranch || 'main'}`
+        ? `<br>GitHub: ${maskSecret(normalized.githubOwner)} / ${maskSecret(normalized.githubRepo)} / ${normalized.githubBranch || 'main'}`
         : '';
     summary.innerHTML = `Режим: ${networkModeLabel(normalized.mode)}${hostText}<br>Обновления: ${updateSourceLabel(normalized.updateSource)}${githubText}`;
 }
