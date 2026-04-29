@@ -1406,7 +1406,8 @@ function buildTipFromBill(bill, status = '') {
         curr: bill.tipCurr || bill.changeCurr || 'AMD',
         amd: Number(bill.tipAMD) || 0,
         user: bill.user,
-        status
+        status,
+        restoredAt: bill.restoredAt || ''
     };
 }
 

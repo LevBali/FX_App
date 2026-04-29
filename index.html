@@ -842,7 +842,8 @@ function buildTipFromBill(bill, status = '') {
         curr,
         amd: Number(bill.tipAMD) || ((Number(bill.tipAmount) || 0) * rateForCurrency(curr)),
         user: bill.user || currentOperator,
-        status
+        status,
+        restoredAt: bill.restoredAt || ''
     };
 }
 
@@ -3109,11 +3110,12 @@ function renderBillDetails(i) {
     return lines.join('');
 }
 
-function renderStatus(status) {
+function renderStatus(status, item = {}) {
     if (!status) return '';
     const restored = String(status).toLowerCase().includes('восстанов');
     const color = restored ? '#0984e3' : '#999';
-    return `| <span style="color:${color}; font-weight:900;">${status}</span>`;
+    const restoredTime = restored && item?.restoredAt ? ` ${escapeHtml(item.restoredAt)}` : '';
+    return `| <span style="color:${color}; font-weight:900;">${escapeHtml(status)}${restoredTime}</span>`;
 }
 
 function recoverAmountInput(clearValues = false) {
@@ -3675,7 +3677,7 @@ async function renderHistory() {
         list.innerHTML = filtered.map(i => `
             <div class="history-item ${i.isSplit ? 'split-operation' : ''} ${i.isShortage ? 'shortage-item' : ''}">
                 ${renderDeleteButton(i.id)}
-                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status, i)}</div>
                 <b>${i.billAmd} ֏</b>
                 ${renderBillDetails(i)}
             </div>`).join('');
@@ -3687,7 +3689,7 @@ async function renderHistory() {
         }
         list.innerHTML = filtered.map(i => `
             <div class="history-item ${i.isSplit ? 'split-operation' : ''} ${i.isShortage ? 'shortage-item' : ''}">
-                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+                <div style="font-size:9px;color:#999;">${i.date || ''} ${i.time} | 👤 ${i.user} ${renderStatus(i.status, i)}</div>
                 <b>${i.billAmd} ֏</b>
                 ${renderBillDetails(i)}
             </div>`).join('');
@@ -3729,7 +3731,7 @@ async function renderSplitPayments() {
     list.innerHTML = filtered.map(i => `
         <div class="history-item ${i.status === 'удалено' ? 'shortage-item' : ''}">
             ${canDeleteItems() ? `<button class="del-btn" onclick="deleteSplitPayment(${i.id})">❌</button>` : ''}
-            <div style="font-size:9px;color:#999;">${i.date} ${i.time} | 👤 ${i.user} ${renderStatus(i.status)}</div>
+            <div style="font-size:9px;color:#999;">${i.date} ${i.time} | 👤 ${i.user} ${renderStatus(i.status, i)}</div>
             <b>${i.billAmd} ֏</b>
             ${renderBillDetails(i)}
         </div>`).join('');
