@@ -156,6 +156,19 @@ function rememberNetworkPeer(host) {
     return peers;
 }
 
+function remoteHostFromRequest(req) {
+    let host = String(req?.socket?.remoteAddress || '').trim();
+    if (host.startsWith('::ffff:')) host = host.slice(7);
+    if (!host || host === '::1' || host === '127.0.0.1') return '';
+    return host;
+}
+
+function rememberPeerFromRequest(req) {
+    const host = remoteHostFromRequest(req);
+    if (host && !localIPv4Addresses().includes(host)) rememberNetworkPeer(host);
+    return host;
+}
+
 function normalizeAuthStore(store = {}) {
     const normalizeGroup = (group, role) => {
         const result = {};
@@ -927,6 +940,8 @@ function readRequestJson(req) {
 }
 
 async function handleNetworkRequest(req, res) {
+    rememberPeerFromRequest(req);
+
     if (req.method === 'OPTIONS') {
         sendJson(res, 200, { ok: true });
         return;
@@ -947,6 +962,18 @@ async function handleNetworkRequest(req, res) {
 
     if (req.method === 'GET' && req.url === '/fx/update-manifest') {
         sendJson(res, 200, { ok: true, manifest: buildUpdateManifest() });
+        return;
+    }
+
+    if (req.method === 'POST' && req.url === '/fx/register-peer') {
+        try {
+            const body = await readRequestJson(req);
+            const host = remoteHostFromRequest(req) || String(body.host || '').trim();
+            if (host) rememberNetworkPeer(host);
+            sendJson(res, 200, { ok: true, host, peers: readNetworkPeers() });
+        } catch (err) {
+            sendJson(res, 500, { ok: false, error: err.message || String(err) });
+        }
         return;
     }
 
@@ -1063,9 +1090,25 @@ async function testNetworkConnection(configInput) {
     try {
         const response = await requestJson('GET', `${hostBaseUrl(config)}/fx/status`, undefined, 2200);
         rememberNetworkPeer(config.host);
+        await registerWithHost(config);
         return { ok: true, message: 'Связь есть', remote: response, status: networkStatus(config) };
     } catch (err) {
         return { ok: false, message: err.message || 'Нет связи', status: networkStatus(config) };
+    }
+}
+
+async function registerWithHost(configInput = readNetworkConfig()) {
+    const config = normalizeNetworkConfig(configInput);
+    if (config.mode !== 'client' || !config.host) return { ok: false, skipped: true };
+    try {
+        const result = await requestJson('POST', `${hostBaseUrl(config)}/fx/register-peer`, {
+            port: config.port,
+            manifest: buildUpdateManifest()
+        }, 900);
+        rememberNetworkPeer(config.host);
+        return result;
+    } catch (err) {
+        return { ok: false, error: err.message || String(err) };
     }
 }
 
@@ -1119,7 +1162,7 @@ function scheduleEmergencyQuit() {
         } finally {
             app.quit();
         }
-    }, 60);
+    }, 30);
 }
 
 async function sendEmergencyCloseToPeer(host, port, payload) {
@@ -1129,6 +1172,10 @@ async function sendEmergencyCloseToPeer(host, port, payload) {
     } catch {
         return false;
     }
+}
+
+function wait(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function fastEmergencyHostCandidates(config) {
@@ -1147,19 +1194,19 @@ function fastEmergencyHostCandidates(config) {
     return Array.from(candidates);
 }
 
-function broadcastEmergencyClose(payload = {}) {
+async function broadcastEmergencyClose(payload = {}) {
     const config = readNetworkConfig();
     const port = config.port;
 
     if (config.mode === 'client' && config.host) {
-        sendEmergencyCloseToPeer(config.host, port, payload);
+        await sendEmergencyCloseToPeer(config.host, port, payload);
         return;
     }
 
     if (config.mode === 'host') {
-        fastEmergencyHostCandidates(config).forEach(host => {
-            sendEmergencyCloseToPeer(host, port, payload);
-        });
+        await Promise.allSettled(
+            fastEmergencyHostCandidates(config).map(host => sendEmergencyCloseToPeer(host, port, payload))
+        );
     }
 }
 
@@ -1176,7 +1223,10 @@ async function emergencyCloseAll(payload = {}) {
         requestedAt: payload.requestedAt || new Date().toISOString()
     };
 
-    broadcastEmergencyClose(nextPayload);
+    await Promise.race([
+        broadcastEmergencyClose(nextPayload),
+        wait(260)
+    ]);
     scheduleEmergencyQuit();
     return { ok: true, emergencyId };
 }
@@ -1920,6 +1970,7 @@ ipcMain.handle('save-network-config', async (event, configInput) => {
     try {
         const config = writeNetworkConfig(configInput);
         const status = await ensureNetworkServer();
+        if (config.mode === 'client') registerWithHost(config);
         return { ok: !status.serverError, config, status };
     } catch (err) {
         console.error("Ошибка сохранения настроек сети:", err);
@@ -2053,6 +2104,7 @@ ipcMain.handle('toggle-always-on-top', async () => {
 app.whenReady().then(async () => {
     initSqliteDatabase();
     await ensureNetworkServer();
+    registerWithHost();
     createWindow();
     registerWindowHotkeys();
 });
