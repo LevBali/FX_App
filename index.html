@@ -3198,6 +3198,15 @@ function focusMoneyInput(id = 'priceAMD') {
     setTimeout(focusTarget, 80);
 }
 
+function focusAmountAfterWindowRestore() {
+    if (!isMainWorkspaceOpen()) return;
+    focusMoneyInput('priceAMD');
+}
+
+if (typeof ipcRenderer.on === 'function') {
+    ipcRenderer.on('focus-main-amount', focusAmountAfterWindowRestore);
+}
+
 function prepareNewPaymentInput() {
     const priceInput = document.getElementById('priceAMD');
     const givenInput = document.getElementById('given');

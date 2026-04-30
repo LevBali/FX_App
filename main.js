@@ -1775,6 +1775,12 @@ function createWindow() {
     });
 
     win.loadFile(path.join(folderPath, 'index.html'));
+
+    const focusAmountAfterRestore = () => {
+        setTimeout(focusMainAmountInput, 80);
+    };
+    win.on('restore', focusAmountAfterRestore);
+    win.on('show', focusAmountAfterRestore);
 }
 
 function alwaysOnTopState() {
@@ -1795,7 +1801,13 @@ function toggleWindowVisibilityHotkey() {
     win.show();
     win.setAlwaysOnTop(true, 'screen-saver');
     win.focus();
+    setTimeout(focusMainAmountInput, 80);
     return { ok: true, visible: true, alwaysOnTop: true };
+}
+
+function focusMainAmountInput() {
+    if (!win || win.isDestroyed()) return;
+    win.webContents.send('focus-main-amount');
 }
 
 function registerWindowHotkeys() {
