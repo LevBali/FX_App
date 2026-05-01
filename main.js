@@ -1811,7 +1811,7 @@ function focusMainAmountInput() {
 }
 
 function registerWindowHotkeys() {
-    ['Plus', '=', 'numadd'].forEach(accelerator => {
+    ['F1'].forEach(accelerator => {
         try {
             globalShortcut.register(accelerator, () => {
                 toggleWindowVisibilityHotkey();
