@@ -391,24 +391,9 @@ function githubRawConfig(config = readNetworkConfig()) {
     return { owner, repo, branch };
 }
 
-function githubRawFileUrl(configOrGithub, fileName) {
-    const github = configOrGithub?.owner ? configOrGithub : githubRawConfig(configOrGithub);
-    const ref = github.ref || github.branch;
-    return `https://raw.githubusercontent.com/${encodeURIComponent(github.owner)}/${encodeURIComponent(github.repo)}/${encodeURIComponent(ref)}/${encodeURIComponent(fileName)}?t=${Date.now()}`;
-}
-
-async function githubResolvedRawConfig(config = readNetworkConfig()) {
+function githubRawFileUrl(config, fileName) {
     const github = githubRawConfig(config);
-    const apiUrl = `https://api.github.com/repos/${encodeURIComponent(github.owner)}/${encodeURIComponent(github.repo)}/commits/${encodeURIComponent(github.branch)}?t=${Date.now()}`;
-    try {
-        const bytes = await requestBuffer('GET', apiUrl, undefined, 10000);
-        const data = JSON.parse(bytes.toString('utf8'));
-        const ref = String(data?.sha || '').trim();
-        return { ...github, ref: ref || github.branch };
-    } catch (err) {
-        console.warn('[GITHUB] Cannot resolve latest branch SHA, falling back to branch raw URL:', err.message || err);
-        return { ...github, ref: github.branch };
-    }
+    return `https://raw.githubusercontent.com/${encodeURIComponent(github.owner)}/${encodeURIComponent(github.repo)}/${encodeURIComponent(github.branch)}/${encodeURIComponent(fileName)}?t=${Date.now()}`;
 }
 
 function requestBuffer(method, urlString, payload, timeoutMs = 10000) {
@@ -424,8 +409,6 @@ function requestBuffer(method, urlString, payload, timeoutMs = 10000) {
             timeout: timeoutMs,
             headers: {
                 'User-Agent': 'FX_App updater',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
                 ...(body ? { 'Content-Type': 'application/json', 'Content-Length': body.length } : {})
             }
         }, res => {
@@ -483,9 +466,8 @@ function buildManifestFromDownloadedFiles(files) {
 
 async function buildGithubUpdatePackage(config = readNetworkConfig()) {
     const downloaded = [];
-    const github = await githubResolvedRawConfig(config);
     for (const fileName of APP_UPDATE_FILES) {
-        const bytes = await requestBuffer('GET', githubRawFileUrl(github, fileName), undefined, 12000);
+        const bytes = await requestBuffer('GET', githubRawFileUrl(config, fileName), undefined, 12000);
         downloaded.push({ name: fileName, bytes });
     }
     const manifest = buildManifestFromDownloadedFiles(downloaded);
@@ -493,7 +475,6 @@ async function buildGithubUpdatePackage(config = readNetworkConfig()) {
     return {
         ok: true,
         source: 'github',
-        githubRef: github.ref,
         manifest,
         files: downloaded.map(file => ({
             ...fileMeta.get(file.name),
