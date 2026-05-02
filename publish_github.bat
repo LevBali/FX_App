@@ -37,13 +37,13 @@ if exist "%GITHUB_REPO%\.git" (
   echo Using GitHub repository: %GITHUB_REPO%
   echo Version: %APP_VERSION%
   set "WORK_DIR=%GITHUB_REPO%"
-  copy /Y "%SOURCE_DIR%index.html" "%WORK_DIR%\index.html" >nul
-  copy /Y "%SOURCE_DIR%main.js" "%WORK_DIR%\main.js" >nul
-  copy /Y "%SOURCE_DIR%package.json" "%WORK_DIR%\package.json" >nul
-  copy /Y "%SOURCE_DIR%package-lock.json" "%WORK_DIR%\package-lock.json" >nul
-  copy /Y "%SOURCE_DIR%start_fx.bat" "%WORK_DIR%\start_fx.bat" >nul
-  copy /Y "%SOURCE_DIR%publish_github.bat" "%WORK_DIR%\publish_github.bat" >nul
-  if exist "%SOURCE_DIR%.gitignore" copy /Y "%SOURCE_DIR%.gitignore" "%WORK_DIR%\.gitignore" >nul
+  copy /Y "%SOURCE_DIR%index.html" "%GITHUB_REPO%\index.html" >nul
+  copy /Y "%SOURCE_DIR%main.js" "%GITHUB_REPO%\main.js" >nul
+  copy /Y "%SOURCE_DIR%package.json" "%GITHUB_REPO%\package.json" >nul
+  copy /Y "%SOURCE_DIR%package-lock.json" "%GITHUB_REPO%\package-lock.json" >nul
+  copy /Y "%SOURCE_DIR%start_fx.bat" "%GITHUB_REPO%\start_fx.bat" >nul
+  copy /Y "%SOURCE_DIR%publish_github.bat" "%GITHUB_REPO%\publish_github.bat" >nul
+  if exist "%SOURCE_DIR%.gitignore" copy /Y "%SOURCE_DIR%.gitignore" "%GITHUB_REPO%\.gitignore" >nul
 )
 
 cd /d "%WORK_DIR%"

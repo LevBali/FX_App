@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, globalShortcut, screen } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
@@ -1763,10 +1763,20 @@ async function handleIpcChannel(channel, payload) {
 
 let win;
 
+function preferredWindowBounds() {
+    const workArea = screen.getPrimaryDisplay()?.workAreaSize || { width: 1200, height: 900 };
+    const width = Math.max(720, Math.min(1200, workArea.width - 32));
+    const height = Math.max(560, Math.min(900, workArea.height - 32));
+    return { width, height };
+}
+
 function createWindow() {
+    const windowBounds = preferredWindowBounds();
     win = new BrowserWindow({
-        width: 1200,
-        height: 900,
+        width: windowBounds.width,
+        height: windowBounds.height,
+        minWidth: 720,
+        minHeight: 560,
         title: "Калькулятор (База: " + folderPath + ")",
         webPreferences: {
             nodeIntegration: true,
