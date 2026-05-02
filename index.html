@@ -733,7 +733,7 @@ body.silent-refresh .trash-item {
             <div class="amount-entry-block">
                 <label class="field-label">СУММА</label>
                 <div class="amount-input-row">
-                    <input type="number" id="given" placeholder="0" oninput="calculate()" onfocus="this.select()">
+                    <input type="number" id="given" placeholder="0" oninput="calculate()">
                     <button type="button" id="quickExactPay" class="quick-pay-box" onclick="fillExactPayment()" title="Вставить сумму без сдачи">
                         <span id="quickPayCurr">USD</span>
                         <b id="quickPayAmount">0</b>
@@ -892,7 +892,7 @@ function setPayCurrency(curr) {
     document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${curr}`));
     setChangeCurr(curr);
     calculate();
-    focusMoneyInput('given');
+    focusMoneyInput('given', false);
 }
 
 function setChangeCurr(curr) {
