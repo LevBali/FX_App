@@ -47,7 +47,7 @@
     #loginOverlay, #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000; }
     #loginOverlay { align-items: flex-start; overflow-y: auto; padding: 18px 10px; box-sizing: border-box; }
     #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { display: none; }
-    #splitOverlay { overflow-y: auto; align-items: flex-start; padding: 12px 0; box-sizing: border-box; }
+    #splitOverlay { overflow-y: auto; align-items: center; padding: 12px; box-sizing: border-box; }
     #splitOverlay .login-box { max-height: calc(100vh - 24px); overflow-y: auto; }
     .login-box { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 340px; }
     .login-shell { width: 100%; max-width: 790px; display: flex; gap: 14px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
@@ -118,6 +118,8 @@
 
     .user-top-line { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .user-badge { background: #4a76c5; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; display: inline-block; font-weight: bold; }
+    .logout-btn { margin-left: auto; height: 30px; padding: 0 12px; border: none; border-radius: 15px; background: #111820; color: #55efc4; font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #05080a; text-transform: uppercase; }
+    .logout-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #05080a; }
     .emergency-close-btn { display: none; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 50%; background: #d63031; color: #fff; font-size: 15px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; line-height: 1; }
     .emergency-close-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
 
@@ -131,7 +133,18 @@
     .card { background: #fff; padding: 20px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.1); margin-bottom: 15px; }
     .field-label { display: block; margin-bottom: 8px; font-weight: 800; color: #444; font-size: 13px; text-transform: uppercase; }
     input[type="number"], select { width: 100%; padding: 14px; border: 3px solid #2d3436; border-radius: 12px; font-size: 24px; font-weight: 800; outline: none; box-sizing: border-box; background: #111820; color: #ffffff; caret-color: #55efc4; }
+    input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+    input[type="number"]::-webkit-outer-spin-button,
+    input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type="number"]:focus, select:focus, .app-prompt-box input:focus { border-color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.18); }
+
+    .amount-entry-block { margin-top: 15px; }
+    .amount-input-row { display: grid; grid-template-columns: minmax(0, 1fr) 106px; gap: 8px; align-items: stretch; }
+    .quick-pay-box { border: 3px solid #2d3436; border-radius: 12px; background: #2d3436; color: #ffffff; cursor: pointer; padding: 6px 5px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 0; box-shadow: inset 0 -3px 0 rgba(0,0,0,0.25); }
+    .quick-pay-box span { font-size: 10px; font-weight: 900; color: #55efc4; line-height: 1; text-transform: uppercase; }
+    .quick-pay-box b { margin-top: 4px; font-size: 18px; line-height: 1; color: #ffffff; overflow-wrap: anywhere; }
+    .quick-pay-box:disabled { opacity: 0.55; cursor: default; }
+    .quick-pay-box:active { transform: scale(0.98); }
     
     .price-display { background: #fff5f5; border: 2px solid #feb2b2; padding: 12px; border-radius: 12px; margin-top: 10px; text-align: center; }
     .price-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -249,6 +262,21 @@
     .split-row label { flex: 1; font-weight: bold; font-size: 12px; }
     .split-row input, .split-row select { flex: 2; padding: 8px; font-size: 16px; }
     .split-pay-block { background: #1f272b; border: 2px solid #465257; border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: left; }
+    #splitOverlay .split-box { width: min(980px, calc(100vw - 24px)); display: grid; grid-template-columns: minmax(220px, 1fr) minmax(220px, 1fr) minmax(230px, 0.9fr); grid-template-areas: "title title title" "total total total" "pay1 pay2 summary" "remaining remaining summary" "save save cancel"; gap: 12px; align-items: stretch; }
+    #splitOverlay .split-box h3 { grid-area: title; margin: 0 !important; }
+    #splitOverlay .split-box > p,
+    #splitOverlay .split-box .split-total-line { grid-area: total; margin: 0 !important; }
+    #splitOverlay .split-pay-block { margin-bottom: 0; }
+    #splitOverlay .split-pay-block.pay-one { grid-area: pay1; }
+    #splitOverlay .split-pay-block.pay-two { grid-area: pay2; }
+    #splitOverlay .split-remaining { grid-area: remaining; margin-bottom: 0; pointer-events: none; }
+    #splitOverlay .split-summary { grid-area: summary; margin-top: 0; display: flex; flex-direction: column; min-height: 0; }
+    #splitOverlay .split-box > .save-btn { grid-area: save; margin-top: 0; }
+    #splitOverlay .split-box > button:last-child { grid-area: cancel; width: 100%; margin-top: 0 !important; border: none !important; border-radius: 12px; padding: 14px 10px; background: #d63031 !important; color: #fff !important; font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; }
+    #splitOverlay .split-box > button:last-child:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
+    #splitOverlay .split-save-btn { grid-area: save; margin-top: 0; }
+    #splitOverlay .split-cancel-btn { grid-area: cancel; width: 100%; margin-top: 0; border: none; border-radius: 12px; padding: 14px 10px; background: #d63031; color: #fff; font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; }
+    #splitOverlay .split-cancel-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
     .split-pay-title { font-weight: 900; font-size: 13px; color: #ffffff; margin-bottom: 8px; text-transform: uppercase; }
     .split-currency-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
     .split-curr-btn { padding: 8px 4px; border: 2px solid #55efc4; border-radius: 10px; background: #2d3436; color: #ffffff; font-weight: 900; cursor: pointer; font-size: 12px; }
@@ -309,6 +337,18 @@ body.silent-refresh .trash-item {
     .history-container { max-height: none; overflow: visible; }
     .history-list { max-height: 46vh; min-height: 190px; }
     .login-shell { max-width: calc(100vw - 16px); }
+    #splitOverlay { align-items: flex-start; }
+    #splitOverlay .split-box { grid-template-columns: 1fr; grid-template-areas: "title" "total" "pay1" "remaining" "pay2" "summary" "save" "cancel"; width: min(430px, calc(100vw - 16px)); }
+    #splitOverlay .split-box h3,
+    #splitOverlay .split-box .split-total-line,
+    #splitOverlay .split-pay-block.pay-one,
+    #splitOverlay .split-pay-block.pay-two,
+    #splitOverlay .split-remaining,
+    #splitOverlay .split-summary,
+    #splitOverlay .split-box > .save-btn,
+    #splitOverlay .split-box > button:last-child,
+    #splitOverlay .split-save-btn,
+    #splitOverlay .split-cancel-btn { grid-column: 1; grid-row: auto; }
 }
 
 @media (min-width: 901px) and (max-width: 1100px) {
@@ -328,10 +368,13 @@ body.silent-refresh .trash-item {
     body { padding: 6px; }
     .card, .history-container { padding: 14px; border-radius: 16px; }
     .login-box, .manual-tip-box, .shift-box, .app-prompt-box { width: min(100%, calc(100vw - 24px)); }
+    #splitOverlay .split-box { width: min(100%, calc(100vw - 12px)); }
     #loginOverlay .login-box, .connection-card { flex: 1 1 100%; max-width: 360px; }
     .connection-row, .connection-actions { grid-template-columns: 1fr; }
     .rates-header { gap: 4px; padding: 5px; }
     .rates-header .rate-item label { width: 14px; }
+    .amount-input-row { grid-template-columns: minmax(0, 1fr) 88px; gap: 6px; }
+    .quick-pay-box b { font-size: 15px; }
     .price-grid { gap: 6px; }
     .price-cell-value { font-size: 18px; }
     .change-with-actions { grid-template-columns: 1fr; }
@@ -533,12 +576,12 @@ body.silent-refresh .trash-item {
     </div>
 </div>
 
-<div id="splitOverlay">
-    <div class="login-box" style="width: 380px;">
+<div id="splitOverlay" onclick="closeSplitOverlay()">
+    <div class="login-box split-box" onclick="event.stopPropagation()">
         <h3>Раздельная оплата 🌓</h3>
         <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Всего к оплате: <b id="splitTotalLabel">0</b> ֏</p>
 
-        <div class="split-pay-block">
+        <div class="split-pay-block pay-one">
             <div class="split-pay-title">Оплата 1</div>
             <input type="hidden" id="splitCurr1" value="AMD">
             <div class="split-currency-row">
@@ -563,7 +606,7 @@ body.silent-refresh .trash-item {
             </div>
         </div>
 
-        <div class="split-pay-block">
+        <div class="split-pay-block pay-two">
             <div class="split-pay-title">Оплата 2</div>
             <input type="hidden" id="splitCurr2" value="RUB">
             <div class="split-currency-row">
@@ -588,8 +631,8 @@ body.silent-refresh .trash-item {
             <button type="button" id="splitTipToggler" class="split-tip-toggle" onclick="toggleSplitTipMode()" disabled>Остаток на чай</button>
         </div>
 
-        <button onclick="saveSplitPayment()" class="save-btn">СОХРАНИТЬ РАЗДЕЛ</button>
-        <button onclick="closeSplitOverlay()" style="background:none; border:none; color:#888; margin-top:15px; cursor:pointer;">Отмена</button>
+        <button type="button" onclick="saveSplitPayment()" class="save-btn split-save-btn">СОХРАНИТЬ РАЗДЕЛ</button>
+        <button type="button" onclick="closeSplitOverlay()" class="split-cancel-btn">ОТМЕНА</button>
     </div>
 </div>
 
@@ -623,6 +666,7 @@ body.silent-refresh .trash-item {
     <div class="calc-container">
         <div class="user-top-line">
             <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
+            <button type="button" class="logout-btn" onclick="logoutToLogin()">ВЫХОД</button>
             <button type="button" class="emergency-close-btn" id="emergencyCloseBtn" title="Экстренно закрыть программу на обоих ПК" onclick="emergencyCloseApp()">☠</button>
         </div>
 
@@ -686,9 +730,15 @@ body.silent-refresh .trash-item {
                 </div>
             </div>
 
-            <div style="margin-top: 15px;">
+            <div class="amount-entry-block">
                 <label class="field-label">СУММА</label>
-                <input type="number" id="given" placeholder="0" oninput="calculate()" onfocus="this.select()">
+                <div class="amount-input-row">
+                    <input type="number" id="given" placeholder="0" oninput="calculate()" onfocus="this.select()">
+                    <button type="button" id="quickExactPay" class="quick-pay-box" onclick="fillExactPayment()" title="Вставить сумму без сдачи">
+                        <span id="quickPayCurr">USD</span>
+                        <b id="quickPayAmount">0</b>
+                    </button>
+                </div>
             </div>
 
             <div class="change-with-actions">
@@ -807,10 +857,33 @@ function calculate() {
     if(document.getElementById('dueUSDExact')) document.getElementById('dueUSDExact').innerText = Math.max(0, exactValues.USD).toFixed(2) + ' USD';
     if(document.getElementById('dueEURExact')) document.getElementById('dueEURExact').innerText = Math.max(0, exactValues.EUR).toFixed(2) + ' EUR';
     document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${payCurr}`));
+    updateQuickExactPay(payCurr, rounded);
     
     // Обновляем превью сдачи и итоги
     calculateChangePreview();
     updateTotals(); 
+}
+
+function updateQuickExactPay(curr, amount) {
+    const currEl = document.getElementById('quickPayCurr');
+    const amountEl = document.getElementById('quickPayAmount');
+    const btn = document.getElementById('quickExactPay');
+    const safeAmount = Math.max(0, Number(amount) || 0);
+    if (currEl) currEl.innerText = curr || 'USD';
+    if (amountEl) amountEl.innerText = safeAmount.toLocaleString('ru-RU');
+    if (btn) btn.disabled = !(safeAmount > 0);
+}
+
+function fillExactPayment() {
+    const amount = Number(String(document.getElementById('quickPayAmount')?.innerText || '0').replace(/\s/g, '')) || 0;
+    const givenInput = document.getElementById('given');
+    if (!givenInput || !(amount > 0)) {
+        focusMoneyInput('given');
+        return;
+    }
+    givenInput.value = amount;
+    calculate();
+    focusMoneyInput('given');
 }
 
 function setPayCurrency(curr) {
@@ -819,6 +892,7 @@ function setPayCurrency(curr) {
     document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${curr}`));
     setChangeCurr(curr);
     calculate();
+    focusMoneyInput('given');
 }
 
 function setChangeCurr(curr) {
@@ -2743,6 +2817,46 @@ async function startShift() {
     calculate();
 }
 
+async function logoutToLogin() {
+    if (autoSyncTimer) {
+        clearInterval(autoSyncTimer);
+        autoSyncTimer = null;
+    }
+    autoSyncBusy = false;
+    currentOperator = "";
+    currentRole = "";
+    currentUserId = "";
+    sessionStorage.removeItem('fx_operator');
+    sessionStorage.removeItem('fx_role');
+    sessionStorage.removeItem('fx_user_id');
+    if (typeof appPromptResolver === 'function') {
+        appPromptResolver(null);
+        appPromptResolver = null;
+        appPromptMode = 'prompt';
+    }
+
+    ['ratesOverlay', 'splitOverlay', 'shiftOverlay', 'manualTipOverlay', 'appPromptOverlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+
+    const main = document.getElementById('mainWrapper');
+    if (main) main.style.display = 'none';
+    activeTab = 'bills';
+    historyCurrencyFilter = 'ALL';
+    openedShiftId = null;
+    isTipMode = false;
+    isSplitTipMode = false;
+    document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
+    const historySearch = document.getElementById('historySearch');
+    if (historySearch) historySearch.value = '';
+
+    await renderLoginScreen();
+    const login = document.getElementById('loginOverlay');
+    if (login) login.style.display = 'flex';
+    startLoginAuthRefresh();
+}
+
 function setOperator(name) {
     currentOperator = name;
     const roleText = roleLabel(currentRole);
@@ -2888,9 +3002,19 @@ function setSplitCurrency(part, curr) {
     });
     if (part === 2) {
         setSplitChangeCurrency(curr);
+        focusSplitPaymentInput(2);
         return;
     }
     calcSplit();
+    focusSplitPaymentInput(part);
+}
+
+function focusSplitPaymentInput(part) {
+    const input = document.getElementById(`splitVal${part}`);
+    setTimeout(() => {
+        input?.focus({ preventScroll: true });
+        input?.select();
+    }, 0);
 }
 
 function setSplitChangeCurrency(curr) {
@@ -3029,6 +3153,10 @@ async function saveSplitPayment() {
     const tipId = useTip ? billId + 1 : null;
     const returnedChangeAMD = changeForSave * (rates[changeCurrForSave] || 0);
     const receivedForTotalsAMD = Math.max(0, state.receivedAMD - returnedChangeAMD - tipAMD);
+    const paymentsForSave = state.payments.map(payment => ({
+        ...payment,
+        statsIgnored: payment.curr === 'AMD'
+    }));
 
     const splitEntry = { 
         id: billId,
@@ -3036,8 +3164,8 @@ async function saveSplitPayment() {
         date: billDate,
         time: billTime,
         billAmd: state.totalAmd,
-        payments: state.payments,
-        payVal: state.payments.map(payment => `${payment.value} ${payment.curr}`).join(' + '),
+        payments: paymentsForSave,
+        payVal: paymentsForSave.map(payment => `${payment.value} ${payment.curr}`).join(' + '),
         receivedAMD: receivedForTotalsAMD,
         receivedRawAMD: state.receivedAMD,
         diffAMD: state.diffAMD,
@@ -3421,6 +3549,23 @@ function billReceivedAmdValue(bill = {}) {
     return (Number(bill.payVal) || 0) * rateForCurrency(bill.payCurr || 'AMD');
 }
 
+function billIgnoredStatsAmdValue(bill = {}) {
+    if (!Array.isArray(bill.payments)) return 0;
+    return bill.payments.reduce((sum, payment) => {
+        return sum + (paymentIgnoredInStats(payment) ? paymentAmdValue(payment) : 0);
+    }, 0);
+}
+
+function billStatsBillAmdValue(bill = {}) {
+    const billAmd = Number(bill.billAmd) || 0;
+    return Math.max(0, billAmd - billIgnoredStatsAmdValue(bill));
+}
+
+function billStatsReceivedAmdValue(bill = {}) {
+    const received = billReceivedAmdValue(bill);
+    return Math.max(0, received - billIgnoredStatsAmdValue(bill));
+}
+
 function buildSummaryFromShiftItems(shift = {}) {
     const bills = (Array.isArray(shift.bills) ? shift.bills : []).filter(item => !isDeletedItem(item) && !isClosedShiftItem(item));
     const tips = (Array.isArray(shift.tips) ? shift.tips : []).filter(item => !isDeletedItem(item));
@@ -3434,14 +3579,14 @@ function buildSummaryFromShiftItems(shift = {}) {
     let tipTotalAMD = 0;
 
     bills.forEach(bill => {
-        const billAmd = Number(bill.billAmd) || 0;
+        const billAmd = billStatsBillAmdValue(bill);
         planAMD += billAmd;
         addTableTotalByRole(tableTotalsByRole, bill, billAmd);
-        receivedAMD += billReceivedAmdValue(bill);
+        receivedAMD += billStatsReceivedAmdValue(bill);
         shortageAMD += Number(bill.shortageAMD) || 0;
 
         if (Array.isArray(bill.payments)) {
-            bill.payments.forEach(payment => addPaymentToTotals(cashTotals, payment.curr, payment.value));
+            bill.payments.forEach(payment => addPaymentEntryToTotals(cashTotals, payment));
         } else {
             addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
         }
@@ -4058,6 +4203,15 @@ function addPaymentToTotals(totals, curr, value) {
     totals[key] += Number(value) || 0;
 }
 
+function paymentIgnoredInStats(payment = {}) {
+    return Boolean(payment.statsIgnored || payment.ignoreStats || (payment.part && payment.curr === 'AMD'));
+}
+
+function addPaymentEntryToTotals(totals, payment = {}) {
+    if (paymentIgnoredInStats(payment)) return;
+    addPaymentToTotals(totals, payment.curr, payment.value);
+}
+
 function buildShiftSummary() {
     const bills = readLocalList(DB_BILLS).filter(item => !isDeletedItem(item) && !isClosedShiftItem(item));
     const tips = readLocalList(DB_TIPS).filter(item => !isDeletedItem(item));
@@ -4071,14 +4225,14 @@ function buildShiftSummary() {
     let tipTotalAMD = 0;
 
     bills.forEach(bill => {
-        const billAmd = Number(bill.billAmd) || 0;
+        const billAmd = billStatsBillAmdValue(bill);
         planAMD += billAmd;
         addTableTotalByRole(tableTotalsByRole, bill, billAmd);
-        receivedAMD += Number(bill.receivedAMD) || 0;
+        receivedAMD += billStatsReceivedAmdValue(bill);
         shortageAMD += Number(bill.shortageAMD) || 0;
 
         if (Array.isArray(bill.payments)) {
-            bill.payments.forEach(payment => addPaymentToTotals(cashTotals, payment.curr, payment.value));
+            bill.payments.forEach(payment => addPaymentEntryToTotals(cashTotals, payment));
         } else {
             addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
         }
@@ -4365,13 +4519,17 @@ async function updateTotals() {
 
     // Считаем чеки
     bills.forEach(b => {
-        const billAmd = parseFloat(b.billAmd) || 0;
+        const billAmd = billStatsBillAmdValue(b);
         planAMD += billAmd;
         addTableTotalByRole(tableTotalsByRole, b, billAmd);
-        if (b.payCurr === 'RUB') totals.RUB += (parseFloat(b.payVal) || 0);
-        if (b.payCurr === 'USD') totals.USD += (parseFloat(b.payVal) || 0);
-        if (b.payCurr === 'EUR') totals.EUR += (parseFloat(b.payVal) || 0);
-        totals.AMD += (parseFloat(b.receivedAMD) || 0);
+        if (Array.isArray(b.payments)) {
+            b.payments.forEach(payment => addPaymentEntryToTotals(totals, payment));
+        } else {
+            if (b.payCurr === 'RUB') totals.RUB += (parseFloat(b.payVal) || 0);
+            if (b.payCurr === 'USD') totals.USD += (parseFloat(b.payVal) || 0);
+            if (b.payCurr === 'EUR') totals.EUR += (parseFloat(b.payVal) || 0);
+        }
+        totals.AMD += billStatsReceivedAmdValue(b);
         shortageTotal += (parseFloat(b.shortageAMD) || 0);
     });
 
