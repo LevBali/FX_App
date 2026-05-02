@@ -878,12 +878,12 @@ function fillExactPayment() {
     const amount = Number(String(document.getElementById('quickPayAmount')?.innerText || '0').replace(/\s/g, '')) || 0;
     const givenInput = document.getElementById('given');
     if (!givenInput || !(amount > 0)) {
-        focusMoneyInput('given');
+        focusMoneyInput('given', false);
         return;
     }
     givenInput.value = amount;
     calculate();
-    focusMoneyInput('given');
+    focusMoneyInput('given', false);
 }
 
 function setPayCurrency(curr) {
@@ -3409,7 +3409,7 @@ function recoverAmountInput(clearValues = false) {
     setTimeout(focusPrice, 80);
 }
 
-function focusMoneyInput(id = 'priceAMD') {
+function focusMoneyInput(id = 'priceAMD', selectValue = true) {
     const priceInput = document.getElementById('priceAMD');
     const givenInput = document.getElementById('given');
     [priceInput, givenInput].forEach(input => {
@@ -3426,7 +3426,7 @@ function focusMoneyInput(id = 'priceAMD') {
         if (!input) return;
         input.blur();
         input.focus({ preventScroll: true });
-        input.select();
+        if (selectValue) input.select();
     };
     setTimeout(focusTarget, 0);
     setTimeout(focusTarget, 80);

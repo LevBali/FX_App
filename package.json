@@ -1,6 +1,6 @@
 {
   "name": "fx-app",
-  "version": "1.0.26",
+  "version": "1.0.27",
   "description": "FX cashier calculator",
   "main": "main.js",
   "private": true,
