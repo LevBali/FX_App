@@ -886,6 +886,72 @@ function fillExactPayment() {
     focusMoneyInput('given', false);
 }
 
+function minimizeAfterReceiptSave() {
+    setTimeout(() => {
+        ipcRenderer.invoke('minimize-app-window').catch(() => {});
+    }, 120);
+}
+
+function normalizeSearchText(value = '') {
+    return String(value || '').toLowerCase().trim();
+}
+
+function searchNumberValue(query = '') {
+    const raw = String(query || '').trim().toLowerCase();
+    if (!raw) return null;
+    if (/[:/\\-]/.test(raw)) return null;
+    const digits = raw.replace(/[^\d]/g, '');
+    if (!digits || digits.length < 2) return null;
+    const textOnly = raw.replace(/[\d\s.,$€₽֏]/g, '');
+    if (textOnly && !/(драм|amd|rub|руб|usd|дол|eur|евр)/i.test(textOnly)) return null;
+    const value = Number.parseInt(digits, 10);
+    return Number.isFinite(value) ? value : null;
+}
+
+function roundedNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.round(number) : null;
+}
+
+function itemSearchNumbers(item = {}) {
+    const values = [
+        item.billAmd,
+        item.payVal,
+        item.changeVal,
+        item.tipAmount,
+        item.receivedAMD,
+        item.receivedRawAMD,
+        item.shortageAMD,
+        item.val,
+        item.amd
+    ];
+    if (Array.isArray(item.payments)) {
+        item.payments.forEach(payment => {
+            values.push(payment.value, payment.amd);
+        });
+    }
+    return values
+        .map(roundedNumber)
+        .filter(value => value !== null);
+}
+
+function itemMatchesSearch(item = {}, query = '') {
+    const search = normalizeSearchText(query);
+    if (!search) return true;
+    const exactNumber = searchNumberValue(search);
+    if (exactNumber !== null) {
+        const primaryAmount = item.billAmd ?? item.val ?? item.amd;
+        return roundedNumber(primaryAmount) === exactNumber;
+    }
+    return String(item.time || '').toLowerCase().includes(search)
+        || String(item.date || '').toLowerCase().includes(search)
+        || String(item.user || '').toLowerCase().includes(search)
+        || String(item.curr || '').toLowerCase().includes(search)
+        || String(item.payCurr || '').toLowerCase().includes(search)
+        || String(item.changeCurr || '').toLowerCase().includes(search)
+        || String(item.tipCurr || '').toLowerCase().includes(search);
+}
+
 function setPayCurrency(curr) {
     document.getElementById('currType').value = curr;
     document.querySelectorAll('.pay-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `pay-${curr}`));
@@ -3218,6 +3284,7 @@ async function saveSplitPayment() {
     prepareNewPaymentInput();
     await renderHistory();
     updateTotals();
+    minimizeAfterReceiptSave();
 }
 
 async function processSave() {
@@ -3323,6 +3390,7 @@ async function processSave() {
     prepareNewPaymentInput();
     await renderHistory();
     updateTotals();
+    minimizeAfterReceiptSave();
 }
 
 async function renderCurrentList() {
@@ -3439,6 +3507,18 @@ function focusAmountAfterWindowRestore() {
 
 if (typeof ipcRenderer.on === 'function') {
     ipcRenderer.on('focus-main-amount', focusAmountAfterWindowRestore);
+    ipcRenderer.on('pos-amount-detected', (_event, payload = {}) => {
+        const amount = Number(payload.amount) || 0;
+        const priceInput = document.getElementById('priceAMD');
+        if (!priceInput || !(amount > 0)) {
+            focusMoneyInput('priceAMD');
+            return;
+        }
+        priceInput.value = String(Math.trunc(amount));
+        calculate();
+        focusMoneyInput('given', false);
+        setTimeout(() => focusMoneyInput('given', false), 140);
+    });
 }
 
 function prepareNewPaymentInput() {
@@ -3950,12 +4030,8 @@ async function renderHistory() {
     const storedAllBills = readLocalList(DB_ALL_BILLS);
     const allBills = storedAllBills;
     const tips = readLocalList(DB_TIPS);
-    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
-    const billMatches = i => !query
-        || String(i.billAmd || '').includes(query)
-        || String(i.time || '').includes(query)
-        || String(i.date || '').includes(query)
-        || String(i.user || '').toLowerCase().includes(query);
+    const query = document.getElementById('historySearch')?.value || "";
+    const billMatches = i => itemMatchesSearch(i, query);
 
     if (activeTab === 'bills') {
         let filtered = sortNewestFirst(bills).filter(billMatches);
@@ -3984,12 +4060,7 @@ async function renderHistory() {
                 ${renderBillDetails(i)}
             </div>`).join('');
     } else {
-        const filtered = sortNewestFirst(tips).filter(i => !query
-            || String(i.val || '').includes(query)
-            || String(i.curr || '').toLowerCase().includes(query)
-            || String(i.time || '').includes(query)
-            || String(i.date || '').includes(query)
-            || String(i.user || '').toLowerCase().includes(query));
+        const filtered = sortNewestFirst(tips).filter(i => itemMatchesSearch(i, query));
 
         if (!filtered.length) {
             list.innerHTML = `<div style="padding: 12px; color: #666;">TIP пусто</div>`;
@@ -4010,8 +4081,8 @@ async function renderSplitPayments() {
     if (!list) return;
 
     const splits = await ipcRenderer.invoke('get-split-payments') || [];
-    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
-    const filtered = sortNewestFirst(splits).filter(i => (i.billAmd?.toString().includes(query) || i.date?.includes(query) || i.time?.includes(query) || i.user?.toLowerCase().includes(query)));
+    const query = document.getElementById('historySearch')?.value || "";
+    const filtered = sortNewestFirst(splits).filter(i => itemMatchesSearch(i, query));
 
     if (!filtered.length) {
         list.innerHTML = `<div style="padding: 12px; color: #666;">Нет разделённых оплат</div>`;
@@ -4065,8 +4136,8 @@ async function renderTrash() {
         writeLocalList(DB_TRASH, personalTrashFrom(allTrash));
     }
     const trash = personalTrashFrom(allTrash);
-    const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
-    const filtered = sortNewestFirst(trash).filter(i => (i.billAmd?.toString().includes(query) || i.time?.includes(query) || i.date?.includes(query) || i.user?.toLowerCase().includes(query)));
+    const query = document.getElementById('historySearch')?.value || "";
+    const filtered = sortNewestFirst(trash).filter(i => itemMatchesSearch(i, query));
 
     if (!filtered.length) {
         list.innerHTML = `<div style="padding: 12px; color: #666;">Корзина пуста</div>`;

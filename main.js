@@ -1,10 +1,11 @@
-const { app, BrowserWindow, ipcMain, shell, globalShortcut, screen } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, globalShortcut, screen, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const http = require('http');
 const https = require('https');
 const os = require('os');
 const crypto = require('crypto');
+const { execFile } = require('child_process');
 let DatabaseSync = null;
 try {
     ({ DatabaseSync } = require('node:sqlite'));
@@ -1781,6 +1782,7 @@ async function handleIpcChannel(channel, payload) {
 }
 
 let win;
+let suppressMainFocusUntil = 0;
 
 function preferredWindowBounds() {
     const workArea = screen.getPrimaryDisplay()?.workAreaSize || { width: 1200, height: 900 };
@@ -1806,6 +1808,9 @@ function createWindow() {
     win.loadFile(path.join(folderPath, 'index.html'));
 
     const focusAmountAfterRestore = () => {
+        if (Date.now() < suppressMainFocusUntil) {
+            return;
+        }
         setTimeout(focusMainAmountInput, 80);
     };
     win.on('restore', focusAmountAfterRestore);
@@ -1839,6 +1844,161 @@ function focusMainAmountInput() {
     win.webContents.send('focus-main-amount');
 }
 
+function showWindowForHotkey({ suppressAutoFocus = false } = {}) {
+    if (!win || win.isDestroyed()) return;
+    if (suppressAutoFocus) suppressMainFocusUntil = Date.now() + 700;
+    if (win.isMinimized()) win.restore();
+    win.show();
+    win.setAlwaysOnTop(true, 'screen-saver');
+    win.focus();
+}
+
+function minimizeAppWindow() {
+    if (!win || win.isDestroyed()) return { ok: false, error: 'Окно приложения не найдено' };
+    win.setAlwaysOnTop(false);
+    win.minimize();
+    return { ok: true };
+}
+
+function parsePosAmountFromOcr(text = '') {
+    const normalized = String(text || '')
+        .replace(/[OoОо]/g, '0')
+        .replace(/[٫]/g, '.');
+    const matches = [];
+    const amountPattern = /(?:[$֏]\s*)?([0-9]{1,3}(?:[,\s][0-9]{3})+|[0-9]+)[.,][0-9]{1,2}/g;
+    let match;
+    while ((match = amountPattern.exec(normalized)) !== null) {
+        const digits = String(match[1] || '').replace(/\D/g, '');
+        const value = Number.parseInt(digits, 10);
+        if (Number.isFinite(value) && value > 0 && value < 100000000) {
+            matches.push({ value, raw: match[0].trim() });
+        }
+    }
+    return matches.length ? matches[matches.length - 1] : null;
+}
+
+function windowsOcrImage(imagePath) {
+    return new Promise(resolve => {
+        const safePath = String(imagePath || '').replace(/'/g, "''");
+        const script = `
+$ImagePath = '${safePath}'
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Storage.StorageFile, Windows.Storage, ContentType=WindowsRuntime] > $null
+[Windows.Storage.FileAccessMode, Windows.Storage, ContentType=WindowsRuntime] > $null
+[Windows.Storage.Streams.IRandomAccessStream, Windows.Storage.Streams, ContentType=WindowsRuntime] > $null
+[Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType=WindowsRuntime] > $null
+[Windows.Graphics.Imaging.SoftwareBitmap, Windows.Graphics.Imaging, ContentType=WindowsRuntime] > $null
+[Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType=WindowsRuntime] > $null
+function Await($Operation, [Type]$ResultType) {
+    $method = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.IsGenericMethod -and $_.GetParameters().Count -eq 1 })[0]
+    $task = $method.MakeGenericMethod($ResultType).Invoke($null, @($Operation))
+    $task.Wait()
+    $task.Result
+}
+$file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($ImagePath)) ([Windows.Storage.StorageFile])
+$stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+$decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+$bitmap = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+if ($null -eq $engine) { exit 2 }
+$result = Await ($engine.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
+Write-Output $result.Text
+`;
+        const encoded = Buffer.from(script, 'utf16le').toString('base64');
+        const powershell = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe');
+        execFile(powershell, ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', encoded], {
+            windowsHide: true,
+            timeout: 9000,
+            maxBuffer: 1024 * 1024
+        }, (error, stdout) => {
+            if (error) {
+                console.error('[POS OCR] OCR failed:', error.message || error);
+                resolve('');
+                return;
+            }
+            resolve(String(stdout || ''));
+        });
+    });
+}
+
+async function captureDisplayForPosAmount(display, index = 0) {
+    if (!desktopCapturer || !display) return null;
+    const scaleFactor = Number(display.scaleFactor) || 1;
+    const width = Math.max(1, Math.round((display.size?.width || 1280) * scaleFactor));
+    const height = Math.max(1, Math.round((display.size?.height || 720) * scaleFactor));
+    const sources = await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width, height }
+    });
+    const source = sources.find(item => String(item.display_id || '') === String(display.id || '')) || sources[index] || sources[0];
+    if (!source || source.thumbnail.isEmpty()) return null;
+
+    const image = source.thumbnail;
+    const size = image.getSize();
+    const cropRect = {
+        x: 0,
+        y: Math.max(0, Math.floor(size.height * 0.58)),
+        width: Math.max(260, Math.min(size.width, Math.floor(size.width * 0.48))),
+        height: Math.max(150, Math.min(size.height, Math.floor(size.height * 0.36)))
+    };
+    cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
+    cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
+
+    const crop = image.crop(cropRect);
+    const capturePath = path.join(electronProfilePath, `pos_amount_capture_${Date.now()}_${index}.png`);
+    fs.writeFileSync(capturePath, crop.toPNG());
+    return capturePath;
+}
+
+async function readPosAmountFromScreen() {
+    const displays = screen.getAllDisplays();
+    const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+    const primaryDisplay = screen.getPrimaryDisplay();
+    const orderedDisplays = [
+        cursorDisplay,
+        primaryDisplay,
+        ...displays
+    ].filter((display, index, list) => display && list.findIndex(item => item.id === display.id) === index);
+
+    for (let i = 0; i < orderedDisplays.length; i++) {
+        let capturePath = '';
+        try {
+            capturePath = await captureDisplayForPosAmount(orderedDisplays[i], i);
+            if (!capturePath) continue;
+            const text = await windowsOcrImage(capturePath);
+            const amount = parsePosAmountFromOcr(text);
+            if (amount) return { ok: true, amount: amount.value, raw: amount.raw, text };
+        } catch (err) {
+            console.error('[POS OCR] Capture failed:', err);
+        } finally {
+            if (capturePath) fs.promises.unlink(capturePath).catch(() => {});
+        }
+    }
+    return { ok: false, error: 'Сумма POS не найдена' };
+}
+
+let posAmountHotkeyBusy = false;
+
+async function importPosAmountHotkey() {
+    if (posAmountHotkeyBusy) return;
+    posAmountHotkeyBusy = true;
+    try {
+        const result = await readPosAmountFromScreen();
+        showWindowForHotkey({ suppressAutoFocus: Boolean(result?.ok) });
+        if (result?.ok) {
+            win.webContents.send('pos-amount-detected', {
+                amount: result.amount,
+                raw: result.raw
+            });
+        } else {
+            focusMainAmountInput();
+        }
+    } finally {
+        posAmountHotkeyBusy = false;
+    }
+}
+
 function registerWindowHotkeys() {
     ['F1'].forEach(accelerator => {
         try {
@@ -1849,6 +2009,13 @@ function registerWindowHotkeys() {
             console.error(`[HOTKEY] Cannot register ${accelerator}:`, err);
         }
     });
+    try {
+        globalShortcut.register('F3', () => {
+            importPosAmountHotkey().catch(err => console.error('[HOTKEY] F3 import failed:', err));
+        });
+    } catch (err) {
+        console.error('[HOTKEY] Cannot register F3:', err);
+    }
 }
 
 // --- ОБРАБОТЧИКИ (СТРОГО ПО ОДНОМУ РАЗУ) ---
@@ -2140,6 +2307,10 @@ ipcMain.handle('get-always-on-top', async () => {
 ipcMain.handle('toggle-always-on-top', async () => {
     const result = toggleWindowVisibilityHotkey();
     return result.ok ? { ok: true, value: Boolean(result.alwaysOnTop) } : result;
+});
+
+ipcMain.handle('minimize-app-window', async () => {
+    return minimizeAppWindow();
 });
 
 app.whenReady().then(async () => {
