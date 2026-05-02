@@ -2,10 +2,16 @@
 setlocal
 cd /d "%~dp0"
 
-set "APP_DIR=%~dp0"
-set "WORK_DIR=%APP_DIR%"
+set "SCRIPT_DIR=%~dp0"
+set "SOURCE_DIR=%SCRIPT_DIR%"
+set "MAIN_APP_DIR=%USERPROFILE%\2222\FX_App\"
 set "GITHUB_REPO=%USERPROFILE%\Desktop\FX_App_GitHub\FX_App"
 
+if exist "%MAIN_APP_DIR%index.html" if exist "%MAIN_APP_DIR%package.json" (
+  set "SOURCE_DIR=%MAIN_APP_DIR%"
+)
+
+set "WORK_DIR=%SOURCE_DIR%"
 set "GIT_EXE=git"
 where git >nul 2>nul
 if errorlevel 1 (
@@ -23,19 +29,21 @@ if errorlevel 1 (
   )
 )
 
-for /f "usebackq tokens=* delims=" %%v in (`powershell -NoProfile -Command "(Get-Content -Raw package.json | ConvertFrom-Json).version"`) do set APP_VERSION=%%v
+for /f "usebackq tokens=* delims=" %%v in (`powershell -NoProfile -Command "(Get-Content -Raw -LiteralPath '%SOURCE_DIR%package.json' | ConvertFrom-Json).version"`) do set APP_VERSION=%%v
 if "%APP_VERSION%"=="" set APP_VERSION=unknown
 
 if exist "%GITHUB_REPO%\.git" (
+  echo Source app: %SOURCE_DIR%
   echo Using GitHub repository: %GITHUB_REPO%
+  echo Version: %APP_VERSION%
   set "WORK_DIR=%GITHUB_REPO%"
-  copy /Y "%APP_DIR%index.html" "%WORK_DIR%\index.html" >nul
-  copy /Y "%APP_DIR%main.js" "%WORK_DIR%\main.js" >nul
-  copy /Y "%APP_DIR%package.json" "%WORK_DIR%\package.json" >nul
-  copy /Y "%APP_DIR%package-lock.json" "%WORK_DIR%\package-lock.json" >nul
-  copy /Y "%APP_DIR%start_fx.bat" "%WORK_DIR%\start_fx.bat" >nul
-  copy /Y "%APP_DIR%publish_github.bat" "%WORK_DIR%\publish_github.bat" >nul
-  if exist "%APP_DIR%.gitignore" copy /Y "%APP_DIR%.gitignore" "%WORK_DIR%\.gitignore" >nul
+  copy /Y "%SOURCE_DIR%index.html" "%WORK_DIR%\index.html" >nul
+  copy /Y "%SOURCE_DIR%main.js" "%WORK_DIR%\main.js" >nul
+  copy /Y "%SOURCE_DIR%package.json" "%WORK_DIR%\package.json" >nul
+  copy /Y "%SOURCE_DIR%package-lock.json" "%WORK_DIR%\package-lock.json" >nul
+  copy /Y "%SOURCE_DIR%start_fx.bat" "%WORK_DIR%\start_fx.bat" >nul
+  copy /Y "%SOURCE_DIR%publish_github.bat" "%WORK_DIR%\publish_github.bat" >nul
+  if exist "%SOURCE_DIR%.gitignore" copy /Y "%SOURCE_DIR%.gitignore" "%WORK_DIR%\.gitignore" >nul
 )
 
 cd /d "%WORK_DIR%"
