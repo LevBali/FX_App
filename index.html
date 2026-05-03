@@ -1485,6 +1485,7 @@ let shiftPrintMode = "shift";
 let lastWeeklyPrintShifts = [];
 let autoSyncTimer = null;
 let autoSyncBusy = false;
+let receiptSaveBusy = false;
 const DB_BILLS = 'fx_bills_v926';
 const DB_TIPS = 'fx_tips_v926';
 const DB_TRASH = 'fx_trash_v926';
@@ -1502,6 +1503,8 @@ const CASHIER_SLOT_COUNT = 4;
 const NETWORK_CONFIG_STORAGE_KEY = 'fx_network_config_v1';
 const CONNECTION_COLLAPSED_STORAGE_KEY = 'fx_connection_panel_collapsed_v1';
 const RATES_STORAGE_KEY = 'fx_rates_settings_v1';
+const UPDATE_RESUME_SESSION_KEY = 'fx_update_resume_session_v1';
+const UPDATE_DISMISSED_KEY = 'fx_update_dismissed_v1';
 const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
 const DEFAULT_NETWORK_CONFIG = { mode: 'local', host: '', port: 9260, updateSource: 'lan', githubOwner: '', githubRepo: '', githubBranch: 'main' };
 let networkCandidates = [];
@@ -1512,6 +1515,8 @@ let authRefreshBusy = false;
 let lastRenderedAuthSignature = '';
 let ratesSaveTimer = null;
 let pendingUpdateConfig = null;
+let sessionUpdateTimer = null;
+let sessionUpdateBusy = false;
 
 function roleLabel(role) {
     if (role === 'admin') return 'Админ';
@@ -2109,6 +2114,153 @@ function lanAutoConfig(config = collectNetworkConfig()) {
     return normalizeNetworkConfig({ ...normalized, updateSource: 'lan' });
 }
 
+function updateIdentity(result = {}) {
+    const remote = result.remote || {};
+    return String(remote.fingerprint || remote.version || '');
+}
+
+function saveUpdateResumeSession() {
+    if (!currentOperator || !currentRole) return;
+    const payload = {
+        user: currentOperator,
+        role: currentRole,
+        userId: currentUserId,
+        activeTab,
+        historyCurrencyFilter,
+        openedShiftId,
+        savedAt: Date.now()
+    };
+    localStorage.setItem(UPDATE_RESUME_SESSION_KEY, JSON.stringify(payload));
+}
+
+function clearUpdateResumeSession() {
+    localStorage.removeItem(UPDATE_RESUME_SESSION_KEY);
+}
+
+function stopSessionUpdateWatcher() {
+    if (sessionUpdateTimer) {
+        clearInterval(sessionUpdateTimer);
+        sessionUpdateTimer = null;
+    }
+    sessionUpdateBusy = false;
+}
+
+function startSessionUpdateWatcher() {
+    stopSessionUpdateWatcher();
+    sessionUpdateTimer = setInterval(() => {
+        checkSessionGithubUpdate().catch(err => {
+            console.error('Session GitHub update check failed:', err);
+        });
+    }, 10 * 60 * 1000);
+    setTimeout(() => {
+        checkSessionGithubUpdate().catch(err => {
+            console.error('Session GitHub update check failed:', err);
+        });
+    }, 4000);
+}
+
+async function checkSessionGithubUpdate() {
+    if (!currentOperator || !currentRole) return;
+    if (sessionUpdateBusy || receiptSaveBusy) return;
+    if (appPromptResolver) return;
+
+    const config = githubAutoConfig(collectNetworkConfig());
+    if (!config) return;
+
+    sessionUpdateBusy = true;
+    try {
+        const result = await ipcRenderer.invoke('check-app-update', config);
+        if (!result?.ok) {
+            setUpdateStatus(result?.error || 'GitHub обновление проверить не удалось', 'bad');
+            return;
+        }
+
+        updateUpdateControls(config, Boolean(result.updateAvailable));
+        setVersionBadge(result.local || localAppManifest, result.remote || null, Boolean(result.updateAvailable));
+        if (!result.updateAvailable) return;
+
+        const identity = updateIdentity(result);
+        if (identity && localStorage.getItem(UPDATE_DISMISSED_KEY) === identity) {
+            setUpdateStatus('В GitHub есть новая версия. Обновление отложено.', 'warn');
+            return;
+        }
+
+        const remoteVersion = result.remote?.version || 'новая';
+        const localVersion = result.local?.version || localAppManifest?.version || '';
+        const ok = await showAppConfirm({
+            title: 'Новая версия',
+            message: `В GitHub найдена версия ${remoteVersion}${localVersion ? `, сейчас стоит ${localVersion}` : ''}. Обновить программу и вернуться в текущий сеанс?`,
+            okText: 'Обновить'
+        });
+        if (!ok) {
+            if (identity) localStorage.setItem(UPDATE_DISMISSED_KEY, identity);
+            setUpdateStatus('Обновление отложено', 'warn');
+            return;
+        }
+
+        await installAppUpdate({
+            configOverride: config,
+            skipConfirm: true,
+            resumeSession: true,
+            restartAfterInstall: true
+        });
+    } finally {
+        sessionUpdateBusy = false;
+    }
+}
+
+async function restoreUpdateSessionIfNeeded() {
+    const raw = localStorage.getItem(UPDATE_RESUME_SESSION_KEY);
+    if (!raw) return false;
+
+    let saved = null;
+    try {
+        saved = JSON.parse(raw);
+    } catch {
+        clearUpdateResumeSession();
+        return false;
+    }
+
+    if (!saved?.user || !saved?.role || Date.now() - (Number(saved.savedAt) || 0) > 15 * 60 * 1000) {
+        clearUpdateResumeSession();
+        return false;
+    }
+
+    currentOperator = String(saved.user || '');
+    currentRole = String(saved.role || '');
+    currentUserId = String(saved.userId || '');
+    activeTab = saved.activeTab || 'bills';
+    if (activeTab === 'shifts' && saved.role !== 'admin' && saved.role !== 'developer') activeTab = 'bills';
+    historyCurrencyFilter = saved.historyCurrencyFilter || 'ALL';
+    openedShiftId = saved.openedShiftId || null;
+    sessionStorage.setItem('fx_operator', currentOperator);
+    sessionStorage.setItem('fx_role', currentRole);
+    sessionStorage.setItem('fx_user_id', currentUserId);
+    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator });
+
+    setOperator(currentOperator);
+    ['loginOverlay', 'ratesOverlay', 'splitOverlay', 'shiftOverlay', 'manualTipOverlay', 'appPromptOverlay'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+    });
+    const main = document.getElementById('mainWrapper');
+    if (main) main.style.display = 'flex';
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    const tabMap = { bills: 0, tips: 1, history: 2, trash: 3, shifts: 4 };
+    const tabIndex = Object.prototype.hasOwnProperty.call(tabMap, activeTab) ? tabMap[activeTab] : 0;
+    document.querySelectorAll('.tab')[tabIndex]?.classList.add('active');
+
+    await loadRatesFromStore();
+    await refreshWorkspaceFromDisk({ forceRender: true });
+    updateTotals();
+    calculate();
+    startAutoSync();
+    startSessionUpdateWatcher();
+    clearUpdateResumeSession();
+    setUpdateStatus('Обновление установлено. Сеанс восстановлен.', 'ok');
+    return true;
+}
+
 async function autoStartupUpdateCheck() {
     const baseConfig = collectNetworkConfig();
     const githubConfig = githubAutoConfig(baseConfig);
@@ -2179,22 +2331,34 @@ async function installAppUpdate(options = {}) {
     }
 
     setUpdateStatus(isGithub ? 'Скачиваю обновление из GitHub...' : 'Скачиваю обновление с главного ПК...', 'warn');
+    if (options.resumeSession) saveUpdateResumeSession();
     try {
         const result = await ipcRenderer.invoke('install-app-update', config);
         if (!result?.ok) {
             setUpdateStatus(result?.error || 'Не удалось установить обновление', 'bad');
+            if (options.resumeSession) clearUpdateResumeSession();
             return;
         }
 
         setVersionBadge(result.manifest || localAppManifest, null, false);
         setUpdateStatus(`Обновлено файлов: ${result.updatedFiles?.length || 0}. Нужен перезапуск.`, 'ok');
+        if (options.restartAfterInstall) {
+            await ipcRenderer.invoke('restart-app');
+            return;
+        }
         const restart = await showAppConfirm({
             title: 'Обновление готово',
             message: 'Файлы программы обновлены. Перезапустить приложение сейчас?',
             okText: 'Перезапустить'
         });
-        if (restart) await ipcRenderer.invoke('restart-app');
+        if (restart) {
+            if (options.resumeSession) saveUpdateResumeSession();
+            await ipcRenderer.invoke('restart-app');
+        } else if (options.resumeSession) {
+            clearUpdateResumeSession();
+        }
     } catch (err) {
+        if (options.resumeSession) clearUpdateResumeSession();
         setUpdateStatus('Ошибка обновления: ' + (err.message || err), 'bad');
     }
 }
@@ -2851,11 +3015,14 @@ window.onload = async () => {
     await syncBillsFromDisk();
     await renderHistory();
     calculate();
-    setTimeout(() => {
-        autoStartupUpdateCheck().catch(err => {
-            setUpdateStatus('Ошибка автопроверки обновлений: ' + (err.message || err), 'bad');
-        });
-    }, 700);
+    const restoredSession = await restoreUpdateSessionIfNeeded();
+    if (!restoredSession) {
+        setTimeout(() => {
+            autoStartupUpdateCheck().catch(err => {
+                setUpdateStatus('Ошибка автопроверки обновлений: ' + (err.message || err), 'bad');
+            });
+        }, 700);
+    }
 };
 
 async function selectUser(name) {
@@ -2881,10 +3048,12 @@ async function startShift() {
     document.getElementById('mainWrapper').style.display = 'flex';
     await refreshWorkspaceFromDisk({ forceRender: true });
     startAutoSync();
+    startSessionUpdateWatcher();
     calculate();
 }
 
 async function logoutToLogin() {
+    stopSessionUpdateWatcher();
     if (autoSyncTimer) {
         clearInterval(autoSyncTimer);
         autoSyncTimer = null;
@@ -3290,6 +3459,16 @@ async function saveSplitPayment() {
 }
 
 async function processSave() {
+    if (receiptSaveBusy) return;
+    receiptSaveBusy = true;
+    try {
+        await processSaveInner();
+    } finally {
+        receiptSaveBusy = false;
+    }
+}
+
+async function processSaveInner() {
     const priceAMD = parseFloat(document.getElementById('priceAMD').value) || 0;
     const givenVal = parseFloat(document.getElementById('given').value) || 0;
     const payCurr = document.getElementById('currType').value;
@@ -4653,6 +4832,7 @@ document.addEventListener('keydown', async event => {
 
     const target = event.target;
     if (event.key !== 'Enter') return;
+    if (event.repeat) return;
     if (!shouldHandleSaveHotkey(target)) return;
 
     const targetId = target?.id || '';
