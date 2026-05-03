@@ -2622,6 +2622,7 @@ async function completeLogin(account) {
     sessionStorage.setItem('fx_operator', currentOperator);
     sessionStorage.setItem('fx_role', currentRole);
     sessionStorage.setItem('fx_user_id', currentUserId);
+    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator });
 
     setOperator(currentOperator);
     document.getElementById('loginOverlay').style.display = 'none';
@@ -2895,6 +2896,7 @@ async function logoutToLogin() {
     sessionStorage.removeItem('fx_operator');
     sessionStorage.removeItem('fx_role');
     sessionStorage.removeItem('fx_user_id');
+    ipcRenderer.send('set-current-session-role', { role: '', user: '' });
     if (typeof appPromptResolver === 'function') {
         appPromptResolver(null);
         appPromptResolver = null;

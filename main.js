@@ -6,6 +6,7 @@ const https = require('https');
 const os = require('os');
 const crypto = require('crypto');
 const { execFile } = require('child_process');
+const { pathToFileURL } = require('url');
 let DatabaseSync = null;
 try {
     ({ DatabaseSync } = require('node:sqlite'));
@@ -1863,18 +1864,40 @@ function minimizeAppWindow() {
 function parsePosAmountFromOcr(text = '') {
     const normalized = String(text || '')
         .replace(/[OoОо]/g, '0')
-        .replace(/[٫]/g, '.');
+        .replace(/[ІӀl]/g, '1')
+        .replace(/[٫]/g, '.')
+        .replace(/(\d)[,.][ \t]+(\d{3})(?=[,.])/g, '$1,$2');
     const matches = [];
-    const amountPattern = /(?:[$֏]\s*)?([0-9]{1,3}(?:[,\s][0-9]{3})+|[0-9]+)[.,][0-9]{1,2}/g;
-    let match;
-    while ((match = amountPattern.exec(normalized)) !== null) {
-        const digits = String(match[1] || '').replace(/\D/g, '');
+    const pushAmount = (integerPart, raw) => {
+        const digits = String(integerPart || '').replace(/\D/g, '');
         const value = Number.parseInt(digits, 10);
         if (Number.isFinite(value) && value > 0 && value < 100000000) {
-            matches.push({ value, raw: match[0].trim() });
+            matches.push({ value, raw: String(raw || '').trim(), digits });
+        }
+    };
+
+    const amountPattern = /(^|[^\d,.'`’])(?:[$֏]\s*)?([0-9]{1,3}(?:[ ,.'`’][0-9]{3})+|[0-9]{2,})([.,][0-9]{1,2})/g;
+    let match;
+    while ((match = amountPattern.exec(normalized)) !== null) {
+        pushAmount(match[2], match[0]);
+    }
+
+    if (!matches.length) {
+        const currencyIntegerPattern = /(^|[^\d,.'`’])(?:[$֏]\s*)?([0-9]{1,3}(?:[ ,.'`’][0-9]{3})+|[0-9]{3,})\s*(?:[$֏]|AMD|֏)/gi;
+        while ((match = currencyIntegerPattern.exec(normalized)) !== null) {
+            pushAmount(match[2], match[0]);
         }
     }
-    return matches.length ? matches[matches.length - 1] : null;
+
+    if (!matches.length) return null;
+    const withoutKeypadGlue = matches.filter(candidate => !matches.some(other =>
+        other !== candidate
+        && candidate.digits.length === other.digits.length + 1
+        && candidate.digits.startsWith('5')
+        && candidate.digits.endsWith(other.digits)
+    ));
+    const usableMatches = withoutKeypadGlue.length ? withoutKeypadGlue : matches;
+    return usableMatches[usableMatches.length - 1];
 }
 
 function windowsOcrImage(imagePath) {
@@ -1922,7 +1945,217 @@ Write-Output $result.Text
     });
 }
 
-async function captureDisplayForPosAmount(display, index = 0) {
+const posAmountMinReliableAmount = 400;
+const posWindowTitlePattern = /GregSys\s*POS/i;
+const posOcrDebugDir = path.join(electronProfilePath, 'ocr_debug');
+let posOcrDebugWindow = null;
+let mainCurrentRole = '';
+
+function escapeDebugHtml(value = '') {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+function resetPosOcrDebugDir() {
+    fs.mkdirSync(posOcrDebugDir, { recursive: true });
+    fs.readdirSync(posOcrDebugDir).forEach(fileName => {
+        const fullPath = path.join(posOcrDebugDir, fileName);
+        try {
+            if (fs.statSync(fullPath).isFile()) fs.unlinkSync(fullPath);
+        } catch {}
+    });
+}
+
+function copyCaptureForDebug(capturePath, sourceLabel) {
+    try {
+        fs.mkdirSync(posOcrDebugDir, { recursive: true });
+        const cleanSource = String(sourceLabel || 'capture').replace(/[^\w.-]+/g, '_').slice(0, 42);
+        const debugPath = path.join(posOcrDebugDir, `pos_ocr_${Date.now()}_${cleanSource}_${path.basename(capturePath)}`);
+        fs.copyFileSync(capturePath, debugPath);
+        return debugPath;
+    } catch {
+        return '';
+    }
+}
+
+function showPosOcrDebugWindow(report = {}) {
+    fs.mkdirSync(posOcrDebugDir, { recursive: true });
+    const items = Array.isArray(report.debugItems) ? report.debugItems : [];
+    const rows = items.map((item, index) => `
+        <section class="card ${item.accepted ? 'accepted' : ''}">
+            <div class="meta">
+                <b>#${index + 1} ${escapeDebugHtml(item.source || '')}</b>
+                <span>${escapeDebugHtml(item.file || '')}</span>
+            </div>
+            <div class="choice ${item.accepted ? 'ok' : ''}">
+                OCR сумма: <b>${item.amount ? escapeDebugHtml(item.amount) : '-'}</b>
+                ${item.raw ? `<span>raw: ${escapeDebugHtml(item.raw)}</span>` : ''}
+                ${item.reason ? `<em>${escapeDebugHtml(item.reason)}</em>` : ''}
+            </div>
+            ${item.imagePath ? `<img src="${pathToFileURL(item.imagePath).href}" alt="capture">` : ''}
+            <pre>${escapeDebugHtml(item.text || '')}</pre>
+        </section>
+    `).join('');
+    const html = `<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>F3 OCR тест</title>
+<style>
+body { margin: 0; padding: 18px; font-family: Arial, sans-serif; background: #111820; color: #eef5f6; }
+h1 { margin: 0 0 8px; font-size: 20px; }
+.summary { padding: 12px; border-radius: 10px; background: ${report.ok ? '#143f34' : '#4a2020'}; margin-bottom: 14px; font-weight: 800; }
+.summary small { display: block; margin-top: 4px; opacity: .8; font-weight: 600; }
+.card { background: #202b2f; border: 2px solid #34454b; border-radius: 12px; padding: 12px; margin-bottom: 14px; }
+.card.accepted { border-color: #00e6c3; }
+.meta { display: flex; justify-content: space-between; gap: 12px; font-size: 13px; color: #b9c8cc; margin-bottom: 8px; }
+.choice { color: #ff7675; font-weight: 800; margin-bottom: 8px; }
+.choice.ok { color: #55efc4; }
+.choice span, .choice em { margin-left: 10px; color: #dfe6e9; font-style: normal; }
+img { display: block; max-width: 100%; border: 1px solid #4b6067; border-radius: 8px; background: #000; margin-bottom: 8px; }
+pre { white-space: pre-wrap; word-break: break-word; background: #0d1418; border-radius: 8px; padding: 10px; color: #dfe6e9; font-size: 12px; max-height: 220px; overflow: auto; }
+</style>
+</head>
+<body>
+<h1>F3 OCR тест</h1>
+<div class="summary">
+${report.ok ? `Выбрано: ${escapeDebugHtml(report.amount)} AMD` : escapeDebugHtml(report.error || 'Сумма не найдена')}
+<small>Версия FX_App: ${escapeDebugHtml(APP_VERSION)}</small>
+<small>Эта диагностика открывается только в режиме Разработка через F4.</small>
+</div>
+${rows || '<div class="card">Скриншотов для OCR нет. Возможно, окно POS не найдено и экран не удалось снять.</div>'}
+</body>
+</html>`;
+    const htmlPath = path.join(posOcrDebugDir, 'last_ocr_debug.html');
+    fs.writeFileSync(htmlPath, html, 'utf8');
+
+    if (!posOcrDebugWindow || posOcrDebugWindow.isDestroyed()) {
+        posOcrDebugWindow = new BrowserWindow({
+            width: 1120,
+            height: 860,
+            title: 'F3 OCR тест',
+            alwaysOnTop: true,
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true
+            }
+        });
+        posOcrDebugWindow.on('closed', () => { posOcrDebugWindow = null; });
+    }
+    posOcrDebugWindow.loadFile(htmlPath).catch(err => console.error('[POS OCR] Debug window failed:', err));
+    posOcrDebugWindow.show();
+    posOcrDebugWindow.focus();
+}
+
+async function readPosAmountFromCapturePaths(capturePaths = [], sourceLabel = '', options = {}) {
+    const debugItems = [];
+    let bestSmallResult = null;
+    try {
+        for (const capturePath of capturePaths) {
+            const debugItem = options.debug ? {
+                source: sourceLabel,
+                file: path.basename(capturePath),
+                imagePath: copyCaptureForDebug(capturePath, sourceLabel),
+                text: '',
+                amount: null,
+                raw: '',
+                accepted: false,
+                reason: ''
+            } : null;
+            const text = await windowsOcrImage(capturePath);
+            const amount = parsePosAmountFromOcr(text);
+            if (debugItem) {
+                debugItem.text = text;
+                debugItem.amount = amount?.value || null;
+                debugItem.raw = amount?.raw || '';
+                debugItems.push(debugItem);
+            }
+            if (!amount) {
+                if (debugItem) debugItem.reason = 'сумма не найдена';
+                continue;
+            }
+            const result = { ok: true, amount: amount.value, raw: amount.raw, text, source: sourceLabel };
+            if (amount.value >= posAmountMinReliableAmount) {
+                if (debugItem) {
+                    debugItem.accepted = true;
+                    debugItem.reason = 'выбрано';
+                }
+                return { result, debugItems };
+            }
+            if (debugItem) debugItem.reason = `меньше ${posAmountMinReliableAmount}`;
+            if (!bestSmallResult || amount.value > bestSmallResult.amount) {
+                bestSmallResult = result;
+            }
+        }
+        if (bestSmallResult) {
+            console.warn('[POS OCR] Ignored suspicious small amount:', bestSmallResult.amount, bestSmallResult.raw);
+        }
+    } finally {
+        capturePaths.forEach(capturePath => fs.promises.unlink(capturePath).catch(() => {}));
+    }
+    return { result: null, debugItems };
+}
+
+async function capturePosWindowForAmount() {
+    if (!desktopCapturer) return null;
+    const sources = await desktopCapturer.getSources({
+        types: ['window'],
+        thumbnailSize: { width: 2600, height: 1800 },
+        fetchWindowIcons: false
+    });
+    const source = sources.find(item => posWindowTitlePattern.test(String(item.name || '')));
+    if (!source || source.thumbnail.isEmpty()) return null;
+
+    const image = source.thumbnail;
+    const size = image.getSize();
+    const stamp = Date.now();
+    const capturePaths = [];
+    const writeCapture = (captureImage, label) => {
+        if (!captureImage || captureImage.isEmpty()) return;
+        const capturePath = path.join(electronProfilePath, `pos_window_amount_${stamp}_${label}.png`);
+        fs.writeFileSync(capturePath, captureImage.toPNG());
+        capturePaths.push(capturePath);
+    };
+    const writeCrop = (label, rect) => {
+        const cropRect = {
+            x: Math.max(0, Math.floor(rect.x)),
+            y: Math.max(0, Math.floor(rect.y)),
+            width: Math.max(1, Math.floor(rect.width)),
+            height: Math.max(1, Math.floor(rect.height))
+        };
+        cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
+        cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
+        if (cropRect.width <= 1 || cropRect.height <= 1) return;
+        const crop = image.crop(cropRect);
+        const enlarged = crop.resize({
+            width: Math.min(2600, Math.max(cropRect.width, Math.round(cropRect.width * 1.9))),
+            height: Math.min(1200, Math.max(cropRect.height, Math.round(cropRect.height * 1.9))),
+            quality: 'best'
+        });
+        writeCapture(enlarged, label);
+    };
+
+    writeCrop('bottom_total', {
+        x: 0,
+        y: size.height * 0.78,
+        width: size.width * 0.55,
+        height: size.height * 0.16
+    });
+    writeCrop('right_payment_total', {
+        x: size.width * 0.48,
+        y: size.height * 0.36,
+        width: size.width * 0.52,
+        height: size.height * 0.16
+    });
+    writeCapture(image, 'full');
+    return capturePaths.length ? capturePaths : null;
+}
+
+async function captureDisplayForPosAmount(display, index = 0, options = {}) {
     if (!desktopCapturer || !display) return null;
     const scaleFactor = Number(display.scaleFactor) || 1;
     const width = Math.max(1, Math.round((display.size?.width || 1280) * scaleFactor));
@@ -1936,22 +2169,70 @@ async function captureDisplayForPosAmount(display, index = 0) {
 
     const image = source.thumbnail;
     const size = image.getSize();
-    const cropRect = {
-        x: 0,
-        y: Math.max(0, Math.floor(size.height * 0.58)),
-        width: Math.max(260, Math.min(size.width, Math.floor(size.width * 0.48))),
-        height: Math.max(150, Math.min(size.height, Math.floor(size.height * 0.36)))
+    const stamp = Date.now();
+    const capturePaths = [];
+    const writeCapture = (captureImage, label) => {
+        if (!captureImage || captureImage.isEmpty()) return;
+        const capturePath = path.join(electronProfilePath, `pos_amount_capture_${stamp}_${index}_${label}.png`);
+        fs.writeFileSync(capturePath, captureImage.toPNG());
+        capturePaths.push(capturePath);
     };
-    cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
-    cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
+    const writeCrop = (label, rect) => {
+        const cropRect = {
+            x: Math.max(0, Math.floor(rect.x)),
+            y: Math.max(0, Math.floor(rect.y)),
+            width: Math.max(1, Math.floor(rect.width)),
+            height: Math.max(1, Math.floor(rect.height))
+        };
+        cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
+        cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
+        if (cropRect.width <= 1 || cropRect.height <= 1) return;
+        const crop = image.crop(cropRect);
+        const enlarged = crop.resize({
+            width: Math.min(2600, Math.max(cropRect.width, Math.round(cropRect.width * 1.8))),
+            height: Math.min(1900, Math.max(cropRect.height, Math.round(cropRect.height * 1.8))),
+            quality: 'best'
+        });
+        writeCapture(enlarged, label);
+    };
 
-    const crop = image.crop(cropRect);
-    const capturePath = path.join(electronProfilePath, `pos_amount_capture_${Date.now()}_${index}.png`);
-    fs.writeFileSync(capturePath, crop.toPNG());
-    return capturePath;
+    writeCrop('pos_total_band', {
+        x: 0,
+        y: size.height * 0.58,
+        width: size.width * 0.56,
+        height: size.height * 0.34
+    });
+    writeCrop('left_bottom', {
+        x: 0,
+        y: size.height * 0.48,
+        width: size.width * 0.44,
+        height: size.height * 0.48
+    });
+    writeCrop('left_total_area', {
+        x: 0,
+        y: size.height * 0.18,
+        width: size.width * 0.44,
+        height: size.height * 0.72
+    });
+    if (options.debug) writeCapture(image, 'full');
+    return capturePaths.length ? capturePaths : null;
 }
 
-async function readPosAmountFromScreen() {
+async function readPosAmountFromScreen(options = {}) {
+    if (options.debug) resetPosOcrDebugDir();
+    const debugItems = [];
+
+    try {
+        const posWindowCaptures = await capturePosWindowForAmount();
+        if (posWindowCaptures?.length) {
+            const posWindowRead = await readPosAmountFromCapturePaths(posWindowCaptures, 'GregSys POS window', options);
+            debugItems.push(...(posWindowRead.debugItems || []));
+            if (posWindowRead.result) return { ...posWindowRead.result, debugItems };
+        }
+    } catch (err) {
+        console.error('[POS OCR] POS window capture failed:', err);
+    }
+
     const displays = screen.getAllDisplays();
     const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
     const primaryDisplay = screen.getPrimaryDisplay();
@@ -1962,20 +2243,20 @@ async function readPosAmountFromScreen() {
     ].filter((display, index, list) => display && list.findIndex(item => item.id === display.id) === index);
 
     for (let i = 0; i < orderedDisplays.length; i++) {
-        let capturePath = '';
+        let capturePaths = [];
         try {
-            capturePath = await captureDisplayForPosAmount(orderedDisplays[i], i);
-            if (!capturePath) continue;
-            const text = await windowsOcrImage(capturePath);
-            const amount = parsePosAmountFromOcr(text);
-            if (amount) return { ok: true, amount: amount.value, raw: amount.raw, text };
+            capturePaths = await captureDisplayForPosAmount(orderedDisplays[i], i, options) || [];
+            const screenRead = await readPosAmountFromCapturePaths(capturePaths, `screen:${orderedDisplays[i].id}`, options);
+            debugItems.push(...(screenRead.debugItems || []));
+            capturePaths = [];
+            if (screenRead.result) return { ...screenRead.result, debugItems };
         } catch (err) {
             console.error('[POS OCR] Capture failed:', err);
         } finally {
-            if (capturePath) fs.promises.unlink(capturePath).catch(() => {});
+            capturePaths.forEach(capturePath => fs.promises.unlink(capturePath).catch(() => {}));
         }
     }
-    return { ok: false, error: 'Сумма POS не найдена' };
+    return { ok: false, error: 'Сумма POS не найдена', debugItems };
 }
 
 let posAmountHotkeyBusy = false;
@@ -1984,6 +2265,12 @@ async function importPosAmountHotkey() {
     if (posAmountHotkeyBusy) return;
     posAmountHotkeyBusy = true;
     try {
+        const shouldHideForCapture = win && !win.isDestroyed() && win.isVisible() && !win.isMinimized();
+        if (shouldHideForCapture) {
+            win.setAlwaysOnTop(false);
+            win.hide();
+            await wait(130);
+        }
         const result = await readPosAmountFromScreen();
         showWindowForHotkey({ suppressAutoFocus: Boolean(result?.ok) });
         if (result?.ok) {
@@ -1994,6 +2281,34 @@ async function importPosAmountHotkey() {
         } else {
             focusMainAmountInput();
         }
+    } catch (err) {
+        console.error('[HOTKEY] F3 import failed:', err);
+        showWindowForHotkey();
+        focusMainAmountInput();
+    } finally {
+        posAmountHotkeyBusy = false;
+    }
+}
+
+async function debugPosAmountHotkey() {
+    if (mainCurrentRole !== 'developer') return;
+    if (posAmountHotkeyBusy) return;
+    posAmountHotkeyBusy = true;
+    try {
+        const shouldHideForCapture = win && !win.isDestroyed() && win.isVisible() && !win.isMinimized();
+        if (shouldHideForCapture) {
+            win.setAlwaysOnTop(false);
+            win.hide();
+            await wait(130);
+        }
+        const result = await readPosAmountFromScreen({ debug: true });
+        showWindowForHotkey();
+        showPosOcrDebugWindow(result);
+        focusMainAmountInput();
+    } catch (err) {
+        console.error('[HOTKEY] F4 debug failed:', err);
+        showWindowForHotkey();
+        focusMainAmountInput();
     } finally {
         posAmountHotkeyBusy = false;
     }
@@ -2016,9 +2331,20 @@ function registerWindowHotkeys() {
     } catch (err) {
         console.error('[HOTKEY] Cannot register F3:', err);
     }
+    try {
+        globalShortcut.register('F4', () => {
+            debugPosAmountHotkey().catch(err => console.error('[HOTKEY] F4 debug failed:', err));
+        });
+    } catch (err) {
+        console.error('[HOTKEY] Cannot register F4:', err);
+    }
 }
 
 // --- ОБРАБОТЧИКИ (СТРОГО ПО ОДНОМУ РАЗУ) ---
+
+ipcMain.on('set-current-session-role', (event, payload = {}) => {
+    mainCurrentRole = String(payload.role || '').trim();
+});
 
 // 1. Сохранение и логирование
 ipcMain.on('save-to-db', (event, transaction) => {
