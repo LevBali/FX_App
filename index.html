@@ -832,7 +832,7 @@ function calculate() {
 
     // Расчет суммы к оплате в выбранной валюте
     const exact = priceAMD / rate;
-    let rounded = (payCurr === 'RUB') ? Math.ceil(exact / 50) * 50 : Math.ceil(exact);
+    let rounded = roundDueInOurFavor(exact, payCurr);
 
     const exactValues = {
         RUB: rates.RUB ? (priceAMD / rates.RUB) : 0,
@@ -840,19 +840,19 @@ function calculate() {
         EUR: rates.EUR ? (priceAMD / rates.EUR) : 0
     };
     const dueValues = {
-        RUB: Math.ceil(exactValues.RUB / 50) * 50,
-        USD: Math.ceil(exactValues.USD),
-        EUR: Math.ceil(exactValues.EUR)
+        RUB: roundDueInOurFavor(exactValues.RUB, 'RUB'),
+        USD: roundDueInOurFavor(exactValues.USD, 'USD'),
+        EUR: roundDueInOurFavor(exactValues.EUR, 'EUR')
     };
 
     // Вывод на экран (проверьте ID в вашем HTML)
-    if(document.getElementById('priceInCurr')) document.getElementById('priceInCurr').innerText = rounded;
+    if(document.getElementById('priceInCurr')) document.getElementById('priceInCurr').innerText = formatDueAmount(rounded, payCurr);
     if(document.getElementById('priceExactVal')) document.getElementById('priceExactVal').innerText = exact.toFixed(2);
     if(document.getElementById('currLabel1')) document.getElementById('currLabel1').innerText = payCurr;
     if(document.getElementById('currLabel2')) document.getElementById('currLabel2').innerText = payCurr;
-    if(document.getElementById('dueRUB')) document.getElementById('dueRUB').innerText = Math.max(0, dueValues.RUB).toLocaleString();
-    if(document.getElementById('dueUSD')) document.getElementById('dueUSD').innerText = Math.max(0, dueValues.USD).toLocaleString();
-    if(document.getElementById('dueEUR')) document.getElementById('dueEUR').innerText = Math.max(0, dueValues.EUR).toLocaleString();
+    if(document.getElementById('dueRUB')) document.getElementById('dueRUB').innerText = formatDueAmount(dueValues.RUB, 'RUB');
+    if(document.getElementById('dueUSD')) document.getElementById('dueUSD').innerText = formatDueAmount(dueValues.USD, 'USD');
+    if(document.getElementById('dueEUR')) document.getElementById('dueEUR').innerText = formatDueAmount(dueValues.EUR, 'EUR');
     if(document.getElementById('dueRUBExact')) document.getElementById('dueRUBExact').innerText = Math.max(0, exactValues.RUB).toFixed(2) + ' RUB';
     if(document.getElementById('dueUSDExact')) document.getElementById('dueUSDExact').innerText = Math.max(0, exactValues.USD).toFixed(2) + ' USD';
     if(document.getElementById('dueEURExact')) document.getElementById('dueEURExact').innerText = Math.max(0, exactValues.EUR).toFixed(2) + ' EUR';
@@ -870,12 +870,15 @@ function updateQuickExactPay(curr, amount) {
     const btn = document.getElementById('quickExactPay');
     const safeAmount = Math.max(0, Number(amount) || 0);
     if (currEl) currEl.innerText = curr || 'USD';
-    if (amountEl) amountEl.innerText = safeAmount.toLocaleString('ru-RU');
+    if (amountEl) amountEl.innerText = formatDueAmount(safeAmount, curr);
+    if (btn) btn.dataset.amount = String(safeAmount);
     if (btn) btn.disabled = !(safeAmount > 0);
 }
 
 function fillExactPayment() {
-    const amount = Number(String(document.getElementById('quickPayAmount')?.innerText || '0').replace(/\s/g, '')) || 0;
+    const btn = document.getElementById('quickExactPay');
+    const fallback = String(document.getElementById('quickPayAmount')?.innerText || '0').replace(/\s/g, '').replace(',', '.');
+    const amount = Number(btn?.dataset.amount || fallback) || 0;
     const givenInput = document.getElementById('given');
     if (!givenInput || !(amount > 0)) {
         focusMoneyInput('given', false);
@@ -972,13 +975,41 @@ function roundChangeInOurFavor(rawChange, curr) {
     if (!isFinite(rawChange)) return 0;
     if (rawChange <= 0) return Math.floor(rawChange);
     if (curr === 'RUB') return Math.floor(rawChange / 50) * 50;
+    if (curr === 'EUR') return roundEuroChange(rawChange);
     return Math.floor(rawChange);
+}
+
+function roundEuroChange(rawChange) {
+    if (!isFinite(rawChange) || rawChange <= 0) return 0;
+    return Math.floor((rawChange + 0.000001) * 2) / 2;
 }
 
 function roundDueInOurFavor(rawDue, curr) {
     if (!isFinite(rawDue) || rawDue <= 0) return 0;
     if (curr === 'RUB') return Math.ceil(rawDue / 50) * 50;
+    if (curr === 'EUR') return roundEuroDue(rawDue);
     return Math.ceil(rawDue);
+}
+
+function roundEuroDue(rawDue) {
+    if (!isFinite(rawDue) || rawDue <= 0) return 0;
+    const whole = Math.floor(rawDue);
+    const fraction = rawDue - whole;
+    if (fraction <= 0.000001) return whole;
+    if (fraction <= 0.600001) return whole + 0.5;
+    return whole + 1;
+}
+
+function formatDueAmount(value, curr) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (curr === 'EUR' && !Number.isInteger(amount)) {
+        return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    return amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+}
+
+function formatChangeAmount(value, curr) {
+    return formatDueAmount(value, curr);
 }
 
 function calculateChangePreview() {
@@ -993,7 +1024,7 @@ function calculateChangePreview() {
     };
     const rate = rates[payCurr] || 1;
     const exactInCurr = rate !== 0 ? priceAMD / rate : 0;
-    const roundedInCurr = (payCurr === 'RUB') ? Math.ceil(exactInCurr / 50) * 50 : Math.ceil(exactInCurr);
+    const roundedInCurr = roundDueInOurFavor(exactInCurr, payCurr);
     const payRoundAMD = roundedInCurr * rate;
     const givenAMD = givenVal * (rates[payCurr] || 0);
     const diffAMD = givenAMD - payRoundAMD;
@@ -1010,12 +1041,12 @@ function calculateChangePreview() {
         }
         changes[curr] = isFinite(displayChange) ? displayChange : 0;
         const el = document.getElementById(`v-${curr}`);
-        if (el) el.innerText = changes[curr];
+        if (el) el.innerText = formatChangeAmount(changes[curr], curr);
     });
 
     // Показываем выбранную валюту сдачи
     const selectedChange = changes[changeCurrency] || 0;
-    if (document.getElementById('resRounded')) document.getElementById('resRounded').innerText = selectedChange;
+    if (document.getElementById('resRounded')) document.getElementById('resRounded').innerText = formatChangeAmount(selectedChange, changeCurrency);
     if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = changeCurrency;
 }
 
@@ -3333,10 +3364,10 @@ function calcSplit() {
     updateText('splitRemainingAmd', `${Math.round(state.remainingAfterFirstAMD).toLocaleString()} ֏`);
 
     ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
-        updateText(`split-rem-${curr}`, state.remainingOptions[curr] || 0);
-        updateText(`split-v-${curr}`, state.changes[curr] || 0);
+        updateText(`split-rem-${curr}`, formatDueAmount(state.remainingOptions[curr] || 0, curr));
+        updateText(`split-v-${curr}`, formatChangeAmount(state.changes[curr] || 0, curr));
     });
-    updateText('splitSelectedChange', state.changes[splitChangeCurrency] || 0);
+    updateText('splitSelectedChange', formatChangeAmount(state.changes[splitChangeCurrency] || 0, splitChangeCurrency));
     updateText('splitSelectedChangeCurr', splitChangeCurrency);
 
     const tipCurr = getSplitTipCurrency(state);
@@ -3347,7 +3378,7 @@ function calcSplit() {
     if (splitTipBtn) {
         splitTipBtn.disabled = !(tipValue > 0);
         splitTipBtn.classList.toggle('active', isSplitTipMode);
-        splitTipBtn.innerText = isSplitTipMode ? `В TIP: ${tipValue} ${tipCurr}` : 'Остаток на чай';
+        splitTipBtn.innerText = isSplitTipMode ? `В TIP: ${formatChangeAmount(tipValue, tipCurr)} ${tipCurr}` : 'Остаток на чай';
     }
 
     const diffEl = document.getElementById('splitDiffAmd');
@@ -3488,12 +3519,7 @@ async function processSaveInner() {
     const rate = rates[payCurr] || 1;
     const exactInCurr = rate !== 0 ? priceAMD / rate : 0;
 
-    let roundedInCurr;
-    if (payCurr === 'RUB') {
-        roundedInCurr = Math.ceil(exactInCurr / 50) * 50;
-    } else {
-        roundedInCurr = Math.ceil(exactInCurr);
-    }
+    let roundedInCurr = roundDueInOurFavor(exactInCurr, payCurr);
     const payRoundAMD = (roundedInCurr || 0) * rate;
 
     const givenAMD = givenVal * (rates[payCurr] || 0);
@@ -3594,24 +3620,24 @@ function renderBillDetails(i) {
             lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
         }
         if (Number(i.changeVal) > 0 && i.changeCurr) {
-            lines.push(`<div style="font-size:12px;color:#111;">Сдача: <b>${i.changeVal || 0} ${i.changeCurr}</b></div>`);
+            lines.push(`<div style="font-size:12px;color:#111;">Сдача: <b>${formatChangeAmount(i.changeVal || 0, i.changeCurr)} ${i.changeCurr}</b></div>`);
         }
         if (i.tipAmount > 0) {
-            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${i.tipAmount} ${i.tipCurr || ''}</b></div>`);
+            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${formatChangeAmount(i.tipAmount, i.tipCurr)} ${i.tipCurr || ''}</b></div>`);
         }
         if (i.shortageAMD > 0) {
             lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏</b></div>`);
         }
     } else {
         if (i.shouldPayInPayCurr) {
-            lines.push(`<div style="font-size:11px;color:#666;">К оплате: ${i.shouldPayInPayCurr} ${i.payCurr || ''}</div>`);
+            lines.push(`<div style="font-size:11px;color:#666;">К оплате: ${formatDueAmount(i.shouldPayInPayCurr, i.payCurr)} ${i.payCurr || ''}</div>`);
         }
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal ?? 0} ${i.payCurr || ''}</b></div>`);
         if (i.changeVal > 0) {
-            lines.push(`<div style="font-size:12px;">Сдача: <b>${i.changeVal} ${i.changeCurr || ''}</b></div>`);
+            lines.push(`<div style="font-size:12px;">Сдача: <b>${formatChangeAmount(i.changeVal, i.changeCurr)} ${i.changeCurr || ''}</b></div>`);
         }
         if (i.tipAmount > 0) {
-            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${i.tipAmount} ${i.tipCurr || ''}</b></div>`);
+            lines.push(`<div style="font-size:12px;color:#00ADB5;">TIP: <b>${formatChangeAmount(i.tipAmount, i.tipCurr)} ${i.tipCurr || ''}</b></div>`);
         }
         if (i.shortageAMD > 0) {
             lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏${i.shortageInPayCurr ? ` / ${i.shortageInPayCurr} ${i.payCurr || ''}` : ''}</b></div>`);
@@ -3937,17 +3963,17 @@ function renderWeeklyShiftReport(shifts) {
         <div class="week-report-row"><span>Смены / чеки / TIP</span><b>${summary.shiftsCount} / ${summary.billsCount} / ${summary.tipsCount}</b></div>
         <div class="week-report-muted">Получено за все смены</div>
         <div class="week-report-grid">
-            <div>RUB: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.RUB)}</b></div>
-            <div>USD: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.USD)}</b></div>
-            <div>EUR: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.EUR)}</b></div>
-            <div>AMD: <b class="curr-line">${formatReceiptNumber(summary.cashTotals.AMD)}</b></div>
+            <div>RUB: <b class="curr-line">${formatCurrencyTotal(summary.cashTotals.RUB, 'RUB')}</b></div>
+            <div>USD: <b class="curr-line">${formatCurrencyTotal(summary.cashTotals.USD, 'USD')}</b></div>
+            <div>EUR: <b class="curr-line">${formatCurrencyTotal(summary.cashTotals.EUR, 'EUR')}</b></div>
+            <div>AMD: <b class="curr-line">${formatCurrencyTotal(summary.cashTotals.AMD, 'AMD')}</b></div>
         </div>
         <div class="week-report-muted">TIP за все смены</div>
         <div class="week-report-grid">
-            <div>RUB: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.RUB)}</b></div>
-            <div>USD: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.USD)}</b></div>
-            <div>EUR: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.EUR)}</b></div>
-            <div>AMD: <b class="curr-line">${formatReceiptNumber(summary.tipTotals.AMD)}</b></div>
+            <div>RUB: <b class="curr-line">${formatCurrencyTotal(summary.tipTotals.RUB, 'RUB')}</b></div>
+            <div>USD: <b class="curr-line">${formatCurrencyTotal(summary.tipTotals.USD, 'USD')}</b></div>
+            <div>EUR: <b class="curr-line">${formatCurrencyTotal(summary.tipTotals.EUR, 'EUR')}</b></div>
+            <div>AMD: <b class="curr-line">${formatCurrencyTotal(summary.tipTotals.AMD, 'AMD')}</b></div>
         </div>
         <div class="week-report-muted">Сумма столов</div>
         <div class="week-report-row"><span>Кассир</span><b>${formatAmd(summary.tableTotalsByRole.cashier)}</b></div>
@@ -4445,6 +4471,10 @@ function formatReceiptNumber(value) {
     return Math.round(Number(value) || 0).toLocaleString('ru-RU');
 }
 
+function formatCurrencyTotal(value, curr) {
+    return formatDueAmount(value, curr);
+}
+
 function formatReceiptMoney(value, curr) {
     return `${formatReceiptNumber(value)} ${curr}`;
 }
@@ -4525,10 +4555,10 @@ function renderCurrencyRows(title, totals) {
     return `
         <div class="line"></div>
         <div class="muted">${title}</div>
-        <div class="row"><span>RUB</span><b>${formatReceiptNumber(totals.RUB)}</b></div>
-        <div class="row"><span>USD</span><b>${formatReceiptNumber(totals.USD)}</b></div>
-        <div class="row"><span>EUR</span><b>${formatReceiptNumber(totals.EUR)}</b></div>
-        <div class="row"><span>AMD</span><b>${formatReceiptNumber(totals.AMD)}</b></div>
+        <div class="row"><span>RUB</span><b>${formatCurrencyTotal(totals.RUB, 'RUB')}</b></div>
+        <div class="row"><span>USD</span><b>${formatCurrencyTotal(totals.USD, 'USD')}</b></div>
+        <div class="row"><span>EUR</span><b>${formatCurrencyTotal(totals.EUR, 'EUR')}</b></div>
+        <div class="row"><span>AMD</span><b>${formatCurrencyTotal(totals.AMD, 'AMD')}</b></div>
     `;
 }
 
@@ -4791,15 +4821,15 @@ async function updateTotals() {
         tipTotals.AMD += (parseFloat(t.amd) || 0);
     });
 
-    const updateEl = (id, val) => {
+    const updateEl = (id, val, curr) => {
         const el = document.getElementById(id);
-        if (el) el.innerText = Math.round(val).toLocaleString();
+        if (el) el.innerText = formatCurrencyTotal(val, curr);
     };
 
-    updateEl('sumRUB', totals.RUB);
-    updateEl('sumUSD', totals.USD);
-    updateEl('sumEUR', totals.EUR);
-    updateEl('sumAMD', totals.AMD);
+    updateEl('sumRUB', totals.RUB, 'RUB');
+    updateEl('sumUSD', totals.USD, 'USD');
+    updateEl('sumEUR', totals.EUR, 'EUR');
+    updateEl('sumAMD', totals.AMD, 'AMD');
 
     const updateAmdEl = (id, val) => {
         const el = document.getElementById(id);
@@ -4819,10 +4849,10 @@ async function updateTotals() {
     if (document.getElementById('finalDiff'))
         document.getElementById('finalDiff').innerText = Math.round((totals.AMD + tipTotals.AMD) - planAMD).toLocaleString() + " ֏";
 
-    updateEl('tipRUB', tipTotals.RUB);
-    updateEl('tipUSD', tipTotals.USD);
-    updateEl('tipEUR', tipTotals.EUR);
-    updateEl('tipAMD', tipTotals.AMD);
+    updateEl('tipRUB', tipTotals.RUB, 'RUB');
+    updateEl('tipUSD', tipTotals.USD, 'USD');
+    updateEl('tipEUR', tipTotals.EUR, 'EUR');
+    updateEl('tipAMD', tipTotals.AMD, 'AMD');
     if(document.getElementById('tipTotalAMD'))
         document.getElementById('tipTotalAMD').innerText = Math.round(tipTotals.AMD).toLocaleString() + " ֏";
 }
