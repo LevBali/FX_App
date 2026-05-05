@@ -225,7 +225,7 @@
     .manual-tip-open-btn { width: 100%; padding: 10px; background: #00ADB5; color: #111820; border: none; border-radius: 10px; font-weight: 900; margin-top: 10px; cursor: pointer; font-size: 13px; }
 
     .history-container { flex: 1 1 390px; width: auto; min-width: 330px; max-width: 460px; max-height: calc(100vh - 20px); overflow: hidden; display: flex; flex-direction: column; background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
-    .tabs { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; background: #111820; padding: 5px; border-radius: 12px; }
+    .tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 4px; margin-bottom: 10px; background: #111820; padding: 5px; border-radius: 12px; }
     .tab { min-width: 0; padding: 9px 3px; text-align: center; font-size: 10px; font-weight: 900; cursor: pointer; border-radius: 8px; color: #ffffff; background: #2d3436; border: 2px solid transparent; line-height: 1.15; overflow-wrap: anywhere; }
     .tab.active { background: #000000; color: #55efc4; border-color: #55efc4; box-shadow: none; }
 
@@ -235,7 +235,7 @@
     .search-icon { position: absolute; right: 12px; top: 10px; color: #55efc4; }
 
     #history-content-wrapper { min-height: 0; flex: 1 1 auto; overflow: hidden; }
-    #history-view, #trash-view, #shift-view { min-height: 0; }
+    #history-view, #trash-view, #shift-view, #week-view { min-height: 0; }
     .history-list { overflow-y: auto; max-height: clamp(220px, calc(100vh - 390px), 480px); min-height: 220px; }
     #sideTotalMount { flex: 0 0 auto; }
     .history-item { background: #f8f9fa; padding: 10px; margin-bottom: 8px; border-radius: 10px; border-left: 5px solid #4a76c5; position: relative; font-size: 13px; }
@@ -279,6 +279,7 @@
     .week-clear-btn { width: 100%; border: none; border-radius: 10px; background: #d63031; color: #fff; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
     .week-print-btn { width: 100%; border: none; border-radius: 10px; background: #00ADB5; color: #111820; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
     .week-report-box { background: #2d3436; color: #fff; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 12px; }
+    #week-view .week-report-box { margin-top: 0; max-height: clamp(260px, calc(100vh - 330px), 620px); overflow-y: auto; }
     .week-report-title { display: flex; justify-content: space-between; gap: 8px; align-items: center; color: #55efc4; font-weight: 900; margin-bottom: 8px; }
     .week-report-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 12px; }
     .week-report-row { display: flex; justify-content: space-between; gap: 8px; border-top: 1px solid rgba(255,255,255,0.14); padding-top: 6px; margin-top: 6px; }
@@ -943,6 +944,7 @@ body.silent-refresh .trash-item {
     <div class="tab" onclick="handleTabClick('tips', this)">TIP</div>
     <div class="tab" onclick="handleTabClick('history', this)">ИСТОРИЯ</div>
     <div class="tab" onclick="handleTabClick('trash', this)">КОРЗИНА</div>
+    <div class="tab manager-only-shift-tab" onclick="handleTabClick('week', this)">НЕДЕЛЯ</div>
     <div class="tab manager-only-shift-tab" onclick="handleTabClick('shifts', this)">СМЕНЫ</div>
 </div>
 
@@ -967,11 +969,13 @@ body.silent-refresh .trash-item {
             <div id="trash-view" style="display: none;">
                 <div id="trash-list" class="history-list"></div>
             </div>
-            <div id="shift-view" style="display: none;">
+            <div id="week-view" style="display: none;">
                 <button type="button" id="weekPrintBtn" class="week-print-btn" onclick="openWeeklyReportPrint()">ПЕЧАТЬ НЕДЕЛЬНОГО ОТЧЕТА</button>
                 <button type="button" id="weekClearBtn" class="week-clear-btn" onclick="clearCurrentWeekHistory()">ОЧИСТИТЬ НЕДЕЛЬНЫЙ ОТЧЕТ</button>
-                <div id="shiftArchiveList" class="history-list"></div>
                 <div id="weeklyShiftReport" class="week-report-box"></div>
+            </div>
+            <div id="shift-view" style="display: none;">
+                <div id="shiftArchiveList" class="history-list"></div>
             </div>
         </div>
         <div id="sideTotalMount"></div>
@@ -1367,7 +1371,7 @@ function setChangeCurr(curr) {
 function roundChangeInOurFavor(rawChange, curr) {
     if (!isFinite(rawChange)) return 0;
     if (rawChange <= 0) return Math.floor(rawChange);
-    if (curr === 'RUB') return Math.floor(rawChange / 50) * 50;
+    if (curr === 'RUB') return roundRubleAmount(rawChange);
     if (curr === 'EUR') return roundEuroChange(rawChange);
     return Math.floor(rawChange);
 }
@@ -1379,9 +1383,18 @@ function roundEuroChange(rawChange) {
 
 function roundDueInOurFavor(rawDue, curr) {
     if (!isFinite(rawDue) || rawDue <= 0) return 0;
-    if (curr === 'RUB') return Math.ceil(rawDue / 50) * 50;
+    if (curr === 'RUB') return roundRubleAmount(rawDue);
     if (curr === 'EUR') return roundEuroDue(rawDue);
     return Math.ceil(rawDue);
+}
+
+function roundRubleAmount(value) {
+    if (!isFinite(value) || value <= 0) return 0;
+    const hundreds = Math.floor(value / 100) * 100;
+    const rest = value - hundreds;
+    if (rest <= 20.000001) return hundreds;
+    if (rest <= 60.000001) return hundreds + 50;
+    return hundreds + 100;
 }
 
 function roundEuroDue(rawDue) {
@@ -1399,6 +1412,14 @@ function formatDueAmount(value, curr) {
         return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
     return amount.toLocaleString('ru-RU', { maximumFractionDigits: 2 });
+}
+
+function formatExactAmount(value, curr) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (curr === 'AMD') {
+        return amount.toLocaleString('ru-RU', { maximumFractionDigits: 0 });
+    }
+    return amount.toLocaleString('ru-RU', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 function formatChangeAmount(value, curr) {
@@ -1503,6 +1524,57 @@ function rateForCurrency(curr) {
     if (curr === 'AMD') return 1;
     const el = document.getElementById(`r${curr}`);
     return parseFloat(el?.value) || 1;
+}
+
+function billPayRateForExactDue(bill = {}) {
+    const curr = bill.payCurr || 'AMD';
+    if (curr === 'AMD') return 1;
+    const savedRate = Number(bill.payRate || bill.rate || bill.ratesSnapshot?.[curr] || bill.rates?.[curr]);
+    if (Number.isFinite(savedRate) && savedRate > 0) return savedRate;
+    const roundedDue = Number(bill.shouldPayInPayCurr);
+    const roundedAmd = Number(bill.shouldPayAMD);
+    if (roundedDue > 0 && roundedAmd > 0) return roundedAmd / roundedDue;
+    return rateForCurrency(curr);
+}
+
+function billExactDueInPayCurrency(bill = {}) {
+    const saved = Number(bill.shouldPayExactInPayCurr || bill.exactInPayCurr || bill.payExactInPayCurr);
+    if (Number.isFinite(saved) && saved > 0) return saved;
+    const billAmd = Number(bill.billAmd);
+    const rate = billPayRateForExactDue(bill);
+    if (Number.isFinite(billAmd) && billAmd > 0 && Number.isFinite(rate) && rate > 0) return billAmd / rate;
+    return null;
+}
+
+function paymentRateForExactDue(payment = {}) {
+    const curr = payment.curr || 'AMD';
+    if (curr === 'AMD') return 1;
+    const savedRate = Number(payment.rate || payment.payRate);
+    if (Number.isFinite(savedRate) && savedRate > 0) return savedRate;
+    const value = Number(payment.value);
+    const amd = Number(payment.amd);
+    if (value > 0 && amd > 0) return amd / value;
+    return rateForCurrency(curr);
+}
+
+function splitExactDueLines(bill = {}) {
+    if (!Array.isArray(bill.payments)) return [];
+    let remainingAMD = Number(bill.billAmd) || 0;
+    const lines = [];
+    bill.payments.forEach(payment => {
+        const curr = payment.curr || 'AMD';
+        const rate = paymentRateForExactDue(payment);
+        if (curr !== 'AMD' && remainingAMD > 0 && Number.isFinite(rate) && rate > 0) {
+            const exact = remainingAMD / rate;
+            lines.push(`${formatExactAmount(exact, curr)} ${curr}`);
+        }
+        const paymentAMD = Number(payment.amd);
+        remainingAMD -= Number.isFinite(paymentAMD)
+            ? paymentAMD
+            : ((Number(payment.value) || 0) * rate);
+        remainingAMD = Math.max(0, remainingAMD);
+    });
+    return lines;
 }
 
 function buildTipFromBill(bill, status = '') {
@@ -2950,7 +3022,7 @@ async function restoreUpdateSessionIfNeeded() {
     currentRole = String(saved.role || '');
     currentUserId = String(saved.userId || '');
     activeTab = saved.activeTab || 'bills';
-    if (activeTab === 'shifts' && saved.role !== 'admin' && saved.role !== 'developer') activeTab = 'bills';
+    if ((activeTab === 'shifts' || activeTab === 'week') && saved.role !== 'admin' && saved.role !== 'developer') activeTab = 'bills';
     historyCurrencyFilter = saved.historyCurrencyFilter || 'ALL';
     openedShiftId = saved.openedShiftId || null;
     sessionStorage.setItem('fx_operator', currentOperator);
@@ -2967,12 +3039,14 @@ async function restoreUpdateSessionIfNeeded() {
     const main = document.getElementById('mainWrapper');
     if (main) main.style.display = 'flex';
     document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    const tabMap = { bills: 0, tips: 1, history: 2, trash: 3, shifts: 4 };
+    const tabMap = { bills: 0, tips: 1, history: 2, trash: 3, week: 4, shifts: 5 };
     const tabIndex = Object.prototype.hasOwnProperty.call(tabMap, activeTab) ? tabMap[activeTab] : 0;
-    document.querySelectorAll('.tab')[tabIndex]?.classList.add('active');
+    const activeTabElement = document.querySelectorAll('.tab')[tabIndex];
+    activeTabElement?.classList.add('active');
 
     await loadRatesFromStore();
     await refreshWorkspaceFromDisk({ forceRender: true });
+    if (activeTabElement) await handleTabClick(activeTab, activeTabElement);
     updateTotals();
     calculate();
     startAutoSync();
@@ -3847,7 +3921,7 @@ function updateDeveloperToolsVisibility() {
     if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
     if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift ? 'inline-flex' : 'none';
     if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
-        ? 'repeat(5, minmax(0, 1fr))'
+        ? 'repeat(6, minmax(0, 1fr))'
         : 'repeat(4, minmax(0, 1fr))';
     document.querySelectorAll('.manager-only-shift-tab').forEach(el => {
         el.style.display = canManageShift ? '' : 'none';
@@ -3869,7 +3943,7 @@ function closeSplitOverlay() {
 }
 
 async function handleTabClick(tab, el) {
-    if (tab === 'shifts' && currentRole !== 'admin' && currentRole !== 'developer') {
+    if ((tab === 'shifts' || tab === 'week') && currentRole !== 'admin' && currentRole !== 'developer') {
         activeTab = 'bills';
         document.querySelectorAll('.tab').forEach((item, index) => item.classList.toggle('active', index === 0));
         await renderHistory();
@@ -3885,6 +3959,7 @@ async function handleTabClick(tab, el) {
     const historyView = document.getElementById('history-view') || document.getElementById('historyList');
     const splitView = document.getElementById('split-view');
     const trashView = document.getElementById('trash-view');
+    const weekView = document.getElementById('week-view');
     const shiftView = document.getElementById('shift-view');
     const currencyFilterRow = document.getElementById('currencyFilterRow');
     const statsBox = document.querySelector('.total-box'); // Весь блок с итогами
@@ -3900,13 +3975,24 @@ async function handleTabClick(tab, el) {
         if(historyView) historyView.style.display = 'none';
         if(splitView) splitView.style.display = 'none';
         if(trashView) trashView.style.display = 'block';
+        if(weekView) weekView.style.display = 'none';
         if(shiftView) shiftView.style.display = 'none';
         if(statsBox) statsBox.style.display = 'none'; // Полностью прячем статистику
         renderTrash(); 
+    } else if (tab === 'week') {
+        if(historyView) historyView.style.display = 'none';
+        if(splitView) splitView.style.display = 'none';
+        if(trashView) trashView.style.display = 'none';
+        if(weekView) weekView.style.display = 'block';
+        if(shiftView) shiftView.style.display = 'none';
+        if(statsBox) statsBox.style.display = 'none';
+        updateDeveloperToolsVisibility();
+        await renderWeeklyReportView();
     } else if (tab === 'shifts') {
         if(historyView) historyView.style.display = 'none';
         if(splitView) splitView.style.display = 'none';
         if(trashView) trashView.style.display = 'none';
+        if(weekView) weekView.style.display = 'none';
         if(shiftView) shiftView.style.display = 'block';
         if(statsBox) statsBox.style.display = 'none';
         updateDeveloperToolsVisibility();
@@ -3916,6 +4002,7 @@ async function handleTabClick(tab, el) {
         if(historyView) historyView.style.display = 'block';
         if(splitView) splitView.style.display = 'none';
         if(trashView) trashView.style.display = 'none';
+        if(weekView) weekView.style.display = 'none';
         if(shiftView) shiftView.style.display = 'none';
         if(statsBox) statsBox.style.display = 'block'; // Показываем общую панель статистики
 
@@ -4577,7 +4664,12 @@ async function processSaveInner() {
         id: billId,
         date: billDate,
         time: billTime,
-        billAmd: priceAMD, shouldPayAMD: payRoundAMD, shouldPayInPayCurr: roundedInCurr,
+        billAmd: priceAMD,
+        shouldPayAMD: payRoundAMD,
+        shouldPayInPayCurr: roundedInCurr,
+        shouldPayExactInPayCurr: exactInCurr,
+        payRate: rate,
+        ratesSnapshot: { RUB: rates.RUB, USD: rates.USD, EUR: rates.EUR },
         payVal: givenVal, payCurr: payCurr,
         changeVal: finalChange, changeCurr: changeCurrency,
         tipAmount: tipAmount, tipCurr: tipCurr, tipAMD: tipAMD, tipId: tipId,
@@ -4606,6 +4698,8 @@ async function processSaveInner() {
 async function renderCurrentList() {
     if (activeTab === 'trash') {
         await renderTrash();
+    } else if (activeTab === 'week') {
+        await renderWeeklyReportView();
     } else if (activeTab === 'shifts') {
         await renderShiftArchive();
     } else if (activeTab === 'split') {
@@ -4619,6 +4713,10 @@ function renderBillDetails(i) {
     const lines = [];
     if (i.isSplit || (i.payVal && String(i.payVal).includes('+'))) {
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal}</b></div>`);
+        const exactLines = splitExactDueLines(i);
+        if (exactLines.length) {
+            lines.push(`<div style="font-size:12px;color:#666;">Без округления: <b>${exactLines.join(' | ')}</b></div>`);
+        }
         if (i.receivedAMD) {
             lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
         }
@@ -4632,8 +4730,13 @@ function renderBillDetails(i) {
             lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏</b></div>`);
         }
     } else {
-        if (i.shouldPayInPayCurr) {
-            lines.push(`<div style="font-size:11px;color:#666;">К оплате: ${formatDueAmount(i.shouldPayInPayCurr, i.payCurr)} ${i.payCurr || ''}</div>`);
+        const exactDue = billExactDueInPayCurrency(i);
+        const roundedDue = Number(i.shouldPayInPayCurr) || (exactDue !== null ? roundDueInOurFavor(exactDue, i.payCurr) : 0);
+        if (roundedDue && i.payCurr) {
+            lines.push(`<div style="font-size:12px;color:#666;">К оплате с округлением: <b>${formatDueAmount(roundedDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
+        }
+        if (exactDue !== null && i.payCurr) {
+            lines.push(`<div style="font-size:12px;color:#666;">Без округления: <b>${formatExactAmount(exactDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
         }
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal ?? 0} ${i.payCurr || ''}</b></div>`);
         if (i.changeVal > 0) {
@@ -5001,6 +5104,11 @@ function renderWeeklyShiftReport(shifts) {
     `;
 }
 
+async function renderWeeklyReportView() {
+    const reportShifts = await loadShiftArchiveForReports();
+    renderWeeklyShiftReport(reportShifts);
+}
+
 async function loadShiftArchiveForReports() {
     let shifts = [];
     try {
@@ -5179,7 +5287,8 @@ async function clearCurrentWeekHistory() {
             return;
         }
         writeLocalList(DB_SHIFT_ARCHIVE, readLocalList(DB_SHIFT_ARCHIVE).filter(shift => String(shift.weekKey || '') !== String(weekKey)));
-        await renderShiftArchive();
+        if (activeTab === 'week') await renderWeeklyReportView();
+        else await renderShiftArchive();
         recoverAmountInput(false);
     } catch (err) {
         await showAppMessage({ title: 'Недельный отчет', message: 'Ошибка очистки: ' + (err.message || err), okText: 'OK' });
@@ -5792,8 +5901,12 @@ async function finishShift() {
         document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
         const historyView = document.getElementById('history-view');
         const trashView = document.getElementById('trash-view');
+        const weekView = document.getElementById('week-view');
+        const shiftView = document.getElementById('shift-view');
         if (historyView) historyView.style.display = 'block';
         if (trashView) trashView.style.display = 'none';
+        if (weekView) weekView.style.display = 'none';
+        if (shiftView) shiftView.style.display = 'none';
         closeShiftOverlay();
         await renderHistory();
         updateTotals();
