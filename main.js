@@ -23,6 +23,7 @@ const electronProfilePath = path.join(folderPath, 'electron_profile');
 fs.mkdirSync(electronProfilePath, { recursive: true });
 app.setPath('userData', electronProfilePath);
 
+const appConfigPath = path.join(app.getPath('userData'), 'config.json');
 const dbPath = path.join(folderPath, 'history_database.json');
 const trashPath = path.join(folderPath, 'trash_database.json'); // Исправлено для надежности
 const splitPath = path.join(folderPath, 'split_payments.json');
@@ -34,9 +35,30 @@ const ratesSettingsPath = path.join(folderPath, 'rates_settings.json');
 const networkPeersPath = path.join(folderPath, 'network_peers.json');
 const sqlitePath = path.join(folderPath, 'fx_database.sqlite');
 const shiftArchivePath = path.join(folderPath, 'shift_archive.json');
+const backupConfigPath = path.join(folderPath, 'backup_settings.json');
+const userSettingsPath = path.join(folderPath, 'user_settings.json');
 const APP_UPDATE_FILES = ['index.html', 'main.js', 'package.json', 'package-lock.json', 'start_fx.bat', 'publish_github.bat'];
 const APP_VERSION = require('./package.json').version || '1.0.0';
 const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
+const DEFAULT_USER_SETTINGS = {
+    enableF1Toggle: true,
+    enableF3Import: true,
+    minimizeAfterSave: true
+};
+const DEFAULT_BACKUP_CONFIG = {
+    enabled: false,
+    owner: 'antionn45-glitch',
+    repo: 'FX_App_Backup',
+    branch: 'main',
+    slot: '',
+    token: '',
+    autoBackup: true,
+    autoIntervalMinutes: 5
+};
+const BACKUP_DATA_FILE = 'latest_backup.json';
+const backupStatePath = path.join(folderPath, 'backup_state.json');
+const BACKUP_AUTO_DEBOUNCE_MS = 60000;
+const BACKUP_MIN_AUTO_INTERVAL_MS = 5 * 60 * 1000;
 
 let sqliteDb = null;
 let sqliteReady = false;
@@ -141,6 +163,86 @@ function writeRatesSettings(value) {
     const rates = normalizeRates(value);
     writeJsonObjectFile(ratesSettingsPath, rates, DEFAULT_RATES);
     return rates;
+}
+
+function normalizePosOcrArea(area = null) {
+    if (!area || typeof area !== 'object') return null;
+    const x = Math.round(Number(area.x));
+    const y = Math.round(Number(area.y));
+    const width = Math.round(Number(area.width));
+    const height = Math.round(Number(area.height));
+    if (![x, y, width, height].every(Number.isFinite) || width < 8 || height < 8) return null;
+    return { x, y, width, height };
+}
+
+function readAppConfig() {
+    const exists = fs.existsSync(appConfigPath);
+    const config = readJsonObjectFile(appConfigPath, {});
+    return { exists, config };
+}
+
+function writeAppConfig(nextConfig = {}) {
+    const config = nextConfig && typeof nextConfig === 'object' && !Array.isArray(nextConfig) ? nextConfig : {};
+    writeJsonObjectFile(appConfigPath, config, {});
+    return config;
+}
+
+function readPosOcrArea() {
+    const { exists, config } = readAppConfig();
+    return { exists, area: normalizePosOcrArea(config.posOcrArea), config };
+}
+
+function writePosOcrArea(area) {
+    const normalized = normalizePosOcrArea(area);
+    if (!normalized) throw new Error('Некорректная область POS. Укажите x, y, width и height.');
+    const { config } = readAppConfig();
+    const nextConfig = {
+        ...config,
+        posOcrArea: normalized,
+        posOcrAreaUpdatedAt: new Date().toISOString()
+    };
+    writeAppConfig(nextConfig);
+    return normalized;
+}
+
+function normalizeUserSettings(value = {}) {
+    return {
+        enableF1Toggle: value.enableF1Toggle === undefined ? DEFAULT_USER_SETTINGS.enableF1Toggle : Boolean(value.enableF1Toggle),
+        enableF3Import: value.enableF3Import === undefined ? DEFAULT_USER_SETTINGS.enableF3Import : Boolean(value.enableF3Import),
+        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave)
+    };
+}
+
+function userSettingsKey(payload = {}) {
+    const role = String(payload.role || '').trim() || 'user';
+    const id = String(payload.id || payload.userId || '').trim();
+    const name = String(payload.name || payload.user || '').trim();
+    return `${role}:${id || name || 'default'}`;
+}
+
+function readUserSettingsStore() {
+    return readJsonObjectFile(userSettingsPath, {});
+}
+
+function writeUserSettingsStore(store = {}) {
+    writeJsonObjectFile(userSettingsPath, store, {});
+    return store;
+}
+
+function readUserSettings(payload = {}) {
+    const store = readUserSettingsStore();
+    const key = userSettingsKey(payload);
+    return normalizeUserSettings(store[key] || {});
+}
+
+function writeUserSettings(payload = {}) {
+    const store = readUserSettingsStore();
+    const key = userSettingsKey(payload);
+    const settings = normalizeUserSettings(payload.settings || payload);
+    store[key] = settings;
+    writeUserSettingsStore(store);
+    scheduleGithubBackup('user-settings', 5000);
+    return { ok: true, key, settings };
 }
 
 function readNetworkPeers() {
@@ -456,6 +558,737 @@ function requestBuffer(method, urlString, payload, timeoutMs = 10000) {
         if (body) req.write(body);
         req.end();
     });
+}
+
+let githubBackupTimer = null;
+let githubBackupRunning = false;
+let githubBackupQueuedReason = '';
+let githubBackupStatus = {
+    state: 'idle',
+    message: 'GitHub backup is not configured',
+    lastAt: '',
+    lastError: ''
+};
+
+function sanitizeBackupSlot(value = '') {
+    return String(value || '')
+        .trim()
+        .replace(/[\\/:*?"<>|#%&{}$!`'@+=]+/g, '_')
+        .replace(/\s+/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .slice(0, 64);
+}
+
+function defaultBackupSlot() {
+    return sanitizeBackupSlot(os.hostname()) || 'main-pc';
+}
+
+function backupSlot(config = {}) {
+    return sanitizeBackupSlot(config.slot || '') || defaultBackupSlot();
+}
+
+function backupDataFileName(config = {}) {
+    return `backups/${backupSlot(config)}/${BACKUP_DATA_FILE}`;
+}
+
+function normalizeBackupConfig(config = {}) {
+    const enabled = Boolean(config.enabled);
+    const owner = String(config.owner ?? DEFAULT_BACKUP_CONFIG.owner).trim();
+    const repo = String(config.repo ?? DEFAULT_BACKUP_CONFIG.repo).trim();
+    const branch = String(config.branch ?? DEFAULT_BACKUP_CONFIG.branch).trim() || DEFAULT_BACKUP_CONFIG.branch;
+    const slot = backupSlot(config);
+    const token = String(config.token || '').trim();
+    const autoBackup = config.autoBackup === undefined ? DEFAULT_BACKUP_CONFIG.autoBackup : Boolean(config.autoBackup);
+    const autoIntervalMinutes = Math.max(1, Math.min(60, Math.round(Number(config.autoIntervalMinutes) || DEFAULT_BACKUP_CONFIG.autoIntervalMinutes)));
+    return { enabled, owner, repo, branch, slot, token, autoBackup, autoIntervalMinutes };
+}
+
+function readBackupConfig() {
+    const stored = readJsonObjectFile(backupConfigPath, DEFAULT_BACKUP_CONFIG);
+    return normalizeBackupConfig({ ...DEFAULT_BACKUP_CONFIG, ...stored });
+}
+
+function publicBackupConfig(config = readBackupConfig()) {
+    const normalized = normalizeBackupConfig(config);
+    return {
+        enabled: normalized.enabled,
+        owner: normalized.owner,
+        repo: normalized.repo,
+        branch: normalized.branch,
+        slot: normalized.slot,
+        backupPath: backupDataFileName(normalized),
+        autoBackup: normalized.autoBackup,
+        autoIntervalMinutes: normalized.autoIntervalMinutes,
+        hasToken: Boolean(normalized.token)
+    };
+}
+
+function writeBackupConfig(input = {}) {
+    const current = readBackupConfig();
+    const hasTokenInput = Object.prototype.hasOwnProperty.call(input, 'token') && String(input.token || '').trim();
+    const token = input.clearToken ? '' : (hasTokenInput ? String(input.token || '').trim() : current.token);
+    const normalized = normalizeBackupConfig({ ...current, ...input, token });
+    writeJsonObjectFile(backupConfigPath, normalized, DEFAULT_BACKUP_CONFIG);
+    return normalized;
+}
+
+function clearGithubBackupRepositoryFields() {
+    const current = readBackupConfig();
+    const cleared = normalizeBackupConfig({
+        ...current,
+        enabled: false,
+        owner: '',
+        repo: '',
+        token: ''
+    });
+    writeJsonObjectFile(backupConfigPath, cleared, DEFAULT_BACKUP_CONFIG);
+    githubBackupStatus = {
+        state: 'ok',
+        message: `Данные репозитория очищены. Папка бэкапа оставлена: ${cleared.slot || 'авто'}`,
+        lastAt: new Date().toISOString(),
+        lastError: ''
+    };
+    return { ok: true, config: publicBackupConfig(cleared), status: githubBackupStatus };
+}
+
+function readBackupState() {
+    const state = readJsonObjectFile(backupStatePath, {});
+    return {
+        lastHash: String(state.lastHash || ''),
+        lastAt: String(state.lastAt || ''),
+        lastAtMs: Number(state.lastAtMs) || 0,
+        backupPath: String(state.backupPath || ''),
+        lastLocalChangeAt: String(state.lastLocalChangeAt || ''),
+        lastLocalChangeAtMs: Number(state.lastLocalChangeAtMs) || 0,
+        lastLocalChangeReason: String(state.lastLocalChangeReason || '')
+    };
+}
+
+function writeBackupState(state = {}) {
+    const normalized = {
+        lastHash: String(state.lastHash || ''),
+        lastAt: String(state.lastAt || ''),
+        lastAtMs: Number(state.lastAtMs) || 0,
+        backupPath: String(state.backupPath || ''),
+        lastLocalChangeAt: String(state.lastLocalChangeAt || ''),
+        lastLocalChangeAtMs: Number(state.lastLocalChangeAtMs) || 0,
+        lastLocalChangeReason: String(state.lastLocalChangeReason || '')
+    };
+    writeJsonObjectFile(backupStatePath, normalized, {});
+    return normalized;
+}
+
+function touchLocalBackupChange(reason = 'change') {
+    const state = readBackupState();
+    const nowMs = Date.now();
+    writeBackupState({
+        ...state,
+        lastLocalChangeAt: new Date(nowMs).toISOString(),
+        lastLocalChangeAtMs: nowMs,
+        lastLocalChangeReason: reason
+    });
+}
+
+function formatDateTimeForUser(value) {
+    const ms = Number(value) || Date.parse(value || '');
+    if (!Number.isFinite(ms) || ms <= 0) return 'нет даты';
+    return new Date(ms).toLocaleString('ru-RU', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit'
+    });
+}
+
+function fileMtimeMs(filePath) {
+    try {
+        return fs.existsSync(filePath) ? Math.round(fs.statSync(filePath).mtimeMs) : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function mergeItemsById(...lists) {
+    let result = [];
+    lists.flat().forEach(item => {
+        if (item && typeof item === 'object') result = upsertById(result, item);
+    });
+    return sortNewestFirst(result);
+}
+
+function collectAllTipsForBackup() {
+    const tipFiles = fs.existsSync(folderPath)
+        ? fs.readdirSync(folderPath).filter(fileName => fileName.endsWith('_tips.json'))
+        : [];
+    const fromFiles = tipFiles.flatMap(fileName => readJson(path.join(folderPath, fileName)));
+    const fromDb = sqliteReady ? dbAllItems('tips') : [];
+    return mergeItemsById(fromDb, fromFiles);
+}
+
+function collectAllBillsForBackup() {
+    const fromHistory = mergeOperatorBillsIntoHistory();
+    const fromDb = sqliteReady ? dbAllItems('bills') : [];
+    const billFiles = fs.existsSync(folderPath)
+        ? fs.readdirSync(folderPath).filter(fileName => fileName.endsWith('_bills.json'))
+        : [];
+    const fromFiles = billFiles.flatMap(fileName => readJson(path.join(folderPath, fileName)));
+    return mergeItemsById(fromHistory, fromDb, fromFiles);
+}
+
+function countAuthAccounts(auth = readAuthStore()) {
+    return Object.keys(auth.admins || {}).length + Object.keys(auth.cashiers || {}).length;
+}
+
+function newestItemTime(items = []) {
+    return items.reduce((max, item) => Math.max(max, newestSortValue(item)), 0);
+}
+
+function normalizeBackupDataForMeta(data = {}) {
+    return {
+        bills: Array.isArray(data.bills) ? data.bills : [],
+        trash: Array.isArray(data.trash) ? data.trash : [],
+        splits: Array.isArray(data.splits) ? data.splits : [],
+        tips: Array.isArray(data.tips) ? data.tips : [],
+        shifts: Array.isArray(data.shifts) ? data.shifts : [],
+        auth: data.auth && typeof data.auth === 'object' ? data.auth : {}
+    };
+}
+
+function newestBackupDataTime(data) {
+    data = normalizeBackupDataForMeta(data);
+    const authCount = countAuthAccounts(data.auth);
+    const hasData = Boolean(
+        data.bills.length ||
+        data.trash.length ||
+        data.splits.length ||
+        data.tips.length ||
+        data.shifts.length ||
+        authCount
+    );
+    if (!hasData) return 0;
+
+    return Math.max(
+        newestItemTime(data.bills),
+        newestItemTime(data.trash),
+        newestItemTime(data.splits),
+        newestItemTime(data.tips),
+        newestItemTime(data.shifts)
+    );
+}
+
+function readTextFileSafe(filePath) {
+    try {
+        return fs.existsSync(filePath) ? fs.readFileSync(filePath, 'utf8') : '';
+    } catch {
+        return '';
+    }
+}
+
+function collectBackupData() {
+    const bills = collectAllBillsForBackup();
+    const trash = readJson(trashPath);
+    const splitFileItems = readJson(splitPath);
+    const splitBillItems = bills.filter(item => item?.isSplit);
+    const splits = mergeItemsById(splitFileItems, splitBillItems);
+    const tips = collectAllTipsForBackup();
+    const shifts = shiftArchiveItems();
+    return {
+        bills,
+        trash,
+        splits,
+        tips,
+        shifts,
+        auth: readAuthStore(),
+        userSettings: readUserSettingsStore(),
+        rates: readRatesSettings(),
+        historyClearMarker: readJsonObjectFile(historyClearMarkerPath, {}),
+        networkConfig: readNetworkConfig(),
+        dailyLog: readTextFileSafe(logPath)
+    };
+}
+
+function buildBackupPayload(reason = 'manual') {
+    const data = collectBackupData();
+    const backupConfig = readBackupConfig();
+    const backupState = readBackupState();
+    const authAccounts = countAuthAccounts(data.auth);
+    const latestDataAtMs = newestBackupDataTime(data);
+    const dataHash = backupDataHash(data);
+    const localSavedAtMs = Number(backupState.lastLocalChangeAtMs) || latestDataAtMs;
+    const counts = {
+        bills: data.bills.length,
+        trash: data.trash.length,
+        splits: data.splits.length,
+        tips: data.tips.length,
+        shifts: data.shifts.length,
+        authAccounts
+    };
+    const hasData = Object.values(counts).some(value => Number(value) > 0);
+    const generatedAtMs = Date.now();
+    const meta = {
+        generatedAt: new Date(generatedAtMs).toISOString(),
+        generatedAtMs,
+        generatedAtText: formatDateTimeForUser(generatedAtMs),
+        latestDataAtMs,
+        latestDataAt: latestDataAtMs ? new Date(latestDataAtMs).toISOString() : '',
+        latestDataAtText: latestDataAtMs ? formatDateTimeForUser(latestDataAtMs) : 'нет данных',
+        localSavedAtMs,
+        localSavedAt: localSavedAtMs ? new Date(localSavedAtMs).toISOString() : '',
+        localSavedAtText: localSavedAtMs ? formatDateTimeForUser(localSavedAtMs) : 'нет данных',
+        localSaveReason: backupState.lastLocalChangeReason || '',
+        version: APP_VERSION,
+        device: os.hostname(),
+        backupSlot: backupSlot(backupConfig),
+        backupPath: backupDataFileName(backupConfig),
+        folderPath,
+        reason,
+        dataHash,
+        counts,
+        hasData
+    };
+    return {
+        schema: 'fx-app-backup-v1',
+        app: 'FX_App',
+        version: APP_VERSION,
+        meta,
+        data
+    };
+}
+
+function backupDataHash(data = {}) {
+    return crypto
+        .createHash('sha256')
+        .update(JSON.stringify(data || {}))
+        .digest('hex');
+}
+
+function backupPayloadHash(payload) {
+    return backupDataHash(payload?.data || {});
+}
+
+function backupMetaFromPayload(payload = {}) {
+    const meta = { ...(payload.meta || {}) };
+    const data = payload.data || {};
+    const normalizedData = normalizeBackupDataForMeta(data);
+    const counts = {
+        bills: normalizedData.bills.length,
+        trash: normalizedData.trash.length,
+        splits: normalizedData.splits.length,
+        tips: normalizedData.tips.length,
+        shifts: normalizedData.shifts.length,
+        authAccounts: countAuthAccounts(normalizedData.auth)
+    };
+    const hasSettingsData = Boolean(
+        Object.keys(data.rates || {}).length ||
+        Object.keys(data.userSettings || {}).length ||
+        Object.keys(data.networkConfig || {}).length ||
+        Object.keys(data.historyClearMarker || {}).length ||
+        String(data.dailyLog || '').trim()
+    );
+    const latestDataAtMs = newestBackupDataTime(data);
+    meta.counts = counts;
+    meta.hasData = Boolean(meta.hasData || hasSettingsData || Object.values(counts).some(value => Number(value) > 0));
+    meta.dataHash = meta.dataHash || backupPayloadHash(payload);
+    meta.backupSlot = meta.backupSlot || backupSlot(readBackupConfig());
+    meta.backupPath = meta.backupPath || backupDataFileName(readBackupConfig());
+    if (latestDataAtMs) {
+        meta.latestDataAtMs = latestDataAtMs;
+        meta.latestDataAt = new Date(latestDataAtMs).toISOString();
+        meta.latestDataAtText = formatDateTimeForUser(latestDataAtMs);
+    }
+    const localSavedAtMs = Number(meta.localSavedAtMs) || latestDataAtMs;
+    if (localSavedAtMs) {
+        meta.localSavedAtMs = localSavedAtMs;
+        meta.localSavedAt = meta.localSavedAt || new Date(localSavedAtMs).toISOString();
+        meta.localSavedAtText = meta.localSavedAtText || formatDateTimeForUser(localSavedAtMs);
+    }
+    return meta;
+}
+
+function githubBackupApiRequest(method, apiPath, token, payload, timeoutMs = 15000) {
+    return new Promise((resolve, reject) => {
+        const body = payload === undefined ? null : Buffer.from(JSON.stringify(payload));
+        const req = https.request({
+            method,
+            hostname: 'api.github.com',
+            path: apiPath,
+            timeout: timeoutMs,
+            headers: {
+                'User-Agent': 'FX_App backup',
+                'Accept': 'application/vnd.github+json',
+                'X-GitHub-Api-Version': '2022-11-28',
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                ...(body ? { 'Content-Type': 'application/json', 'Content-Length': body.length } : {})
+            }
+        }, res => {
+            const chunks = [];
+            res.on('data', chunk => chunks.push(chunk));
+            res.on('end', () => {
+                const text = Buffer.concat(chunks).toString('utf8');
+                let parsed = {};
+                try {
+                    parsed = text ? JSON.parse(text) : {};
+                } catch {
+                    parsed = { raw: text };
+                }
+                if (res.statusCode >= 200 && res.statusCode < 300) {
+                    resolve(parsed);
+                    return;
+                }
+                const err = new Error(parsed.message || `GitHub HTTP ${res.statusCode}`);
+                err.statusCode = res.statusCode;
+                err.response = parsed;
+                reject(err);
+            });
+        });
+
+        req.on('error', reject);
+        req.on('timeout', () => req.destroy(new Error('Нет ответа от GitHub Backup')));
+        if (body) req.write(body);
+        req.end();
+    });
+}
+
+function githubBackupFilePath(config, fileName) {
+    const owner = encodeURIComponent(config.owner);
+    const repo = encodeURIComponent(config.repo);
+    const encodedPath = String(fileName || '')
+        .split('/')
+        .map(part => encodeURIComponent(part))
+        .join('/');
+    return `/repos/${owner}/${repo}/contents/${encodedPath}`;
+}
+
+function ensureBackupConfigReady(config = readBackupConfig()) {
+    if (!config.enabled) throw new Error('Включите GitHub Backup в настройках');
+    if (!config.owner || !config.repo) throw new Error('Укажите owner и repo для GitHub Backup');
+    if (!config.token) throw new Error('Вставьте GitHub token для приватного бэкапа');
+    return config;
+}
+
+async function readGithubBackupFile(config, fileName) {
+    try {
+        const data = await githubBackupApiRequest(
+            'GET',
+            `${githubBackupFilePath(config, fileName)}?ref=${encodeURIComponent(config.branch)}&t=${Date.now()}`,
+            config.token,
+            undefined,
+            15000
+        );
+        const content = Buffer.from(String(data.content || '').replace(/\s/g, ''), 'base64').toString('utf8');
+        let json = null;
+        try {
+            json = content ? JSON.parse(content) : null;
+        } catch {}
+        return { exists: true, sha: data.sha || '', content, json };
+    } catch (err) {
+        if (err.statusCode === 404) return { exists: false, sha: '', content: '', json: null };
+        throw err;
+    }
+}
+
+async function writeGithubBackupFile(config, fileName, content, message) {
+    const existing = await readGithubBackupFile(config, fileName);
+    const buildPayload = includeBranch => ({
+        message,
+        ...(includeBranch ? { branch: config.branch } : {}),
+        content: Buffer.from(String(content || ''), 'utf8').toString('base64'),
+        ...(existing.sha ? { sha: existing.sha } : {})
+    });
+    try {
+        return await githubBackupApiRequest('PUT', githubBackupFilePath(config, fileName), config.token, buildPayload(true), 25000);
+    } catch (err) {
+        if (!existing.sha && (err.statusCode === 404 || err.statusCode === 422)) {
+            return githubBackupApiRequest('PUT', githubBackupFilePath(config, fileName), config.token, buildPayload(false), 25000);
+        }
+        throw err;
+    }
+}
+
+function backupComparisonMessage(comparison, remoteMeta = {}, localMeta = {}) {
+    const remoteBackup = remoteMeta.generatedAtText || formatDateTimeForUser(remoteMeta.generatedAtMs || remoteMeta.generatedAt);
+    const localSaved = localMeta.localSavedAtText || formatDateTimeForUser(localMeta.localSavedAtMs || localMeta.localSavedAt || localMeta.latestDataAtMs || localMeta.latestDataAt);
+    const slot = remoteMeta.backupSlot || localMeta.backupSlot || backupSlot(readBackupConfig());
+    const details = `\nПоследний бэкап в GitHub: ${remoteBackup}\nПоследнее сохранение локально: ${localSaved}\nПапка бэкапа: ${slot}`;
+    if (comparison.status === 'local-empty') {
+        return `На этом ПК данных нет. В GitHub есть бэкап.${details}`;
+    }
+    if (comparison.status === 'local-newer') {
+        return `На этом ПК есть локальное сохранение после последнего бэкапа. Без подтверждения восстановление не выполнено.${details}`;
+    }
+    if (comparison.status === 'remote-newer') {
+        return `В GitHub есть более свежий бэкап.${details}`;
+    }
+    if (comparison.status === 'remote-empty') {
+        return `В GitHub бэкап пустой.${details}`;
+    }
+    if (comparison.status === 'different') {
+        return `Данные отличаются. Сверьте бэкап перед восстановлением.${details}`;
+    }
+    return `Бэкап и локальные данные совпадают.${details}`;
+}
+
+function compareBackupMeta(remoteMeta = {}, localMeta = {}) {
+    const remoteHasData = Boolean(remoteMeta.hasData);
+    const localHasData = Boolean(localMeta.hasData);
+    const remoteHash = String(remoteMeta.dataHash || '');
+    const localHash = String(localMeta.dataHash || '');
+    const remoteMs = Number(remoteMeta.latestDataAtMs) || 0;
+    const localMs = Number(localMeta.latestDataAtMs) || 0;
+    if (!remoteHasData) return { status: 'remote-empty', remoteMs, localMs };
+    if (!localHasData) return { status: 'local-empty', remoteMs, localMs };
+    if (remoteHash && localHash && remoteHash === localHash) {
+        return { status: 'same', remoteMs, localMs, remoteHash, localHash };
+    }
+    if (localMs > remoteMs + 1000) return { status: 'local-newer', remoteMs, localMs };
+    if (remoteMs > localMs + 1000) return { status: 'remote-newer', remoteMs, localMs };
+    if (remoteHash && localHash && remoteHash !== localHash) {
+        return { status: 'different', remoteMs, localMs, remoteHash, localHash };
+    }
+    return { status: 'same', remoteMs, localMs, remoteHash, localHash };
+}
+
+async function fetchGithubBackupPayload(config = readBackupConfig()) {
+    const ready = ensureBackupConfigReady(config);
+    const fileName = backupDataFileName(ready);
+    let file = await readGithubBackupFile(ready, fileName);
+    let sourcePath = fileName;
+    if (!file.exists && fileName !== BACKUP_DATA_FILE) {
+        const legacyFile = await readGithubBackupFile(ready, BACKUP_DATA_FILE);
+        if (legacyFile.exists) {
+            file = legacyFile;
+            sourcePath = BACKUP_DATA_FILE;
+        }
+    }
+    if (!file.exists || !file.json) return { exists: false, payload: null };
+    return { exists: true, payload: file.json, backupPath: sourcePath };
+}
+
+async function checkGithubBackup() {
+    const config = ensureBackupConfigReady(readBackupConfig());
+    const remote = await fetchGithubBackupPayload(config);
+    if (!remote.exists) {
+        return { ok: true, exists: false, message: 'Бэкап в GitHub пока не найден' };
+    }
+    const local = buildBackupPayload('local-check');
+    const remoteMeta = backupMetaFromPayload(remote.payload);
+    const localMeta = backupMetaFromPayload(local);
+    remoteMeta.backupPath = remote.backupPath || remoteMeta.backupPath;
+    const comparison = compareBackupMeta(remoteMeta, localMeta);
+    return {
+        ok: true,
+        exists: true,
+        remoteMeta,
+        localMeta,
+        comparison,
+        message: backupComparisonMessage(comparison, remoteMeta, localMeta)
+    };
+}
+
+function clearOperatorJsonFiles(suffix) {
+    try {
+        fs.readdirSync(folderPath)
+            .filter(fileName => fileName.endsWith(suffix))
+            .forEach(fileName => writeJson(path.join(folderPath, fileName), []));
+    } catch (err) {
+        console.warn('[BACKUP] Cannot clear operator files:', err.message || err);
+    }
+}
+
+function writeItemsByUserToFiles(items, suffix) {
+    clearOperatorJsonFiles(suffix);
+    const groups = new Map();
+    (Array.isArray(items) ? items : []).forEach(item => {
+        const user = String(item?.user || '').trim();
+        if (!user) return;
+        groups.set(user, [...(groups.get(user) || []), item]);
+    });
+    groups.forEach((rows, user) => {
+        writeJson(path.join(folderPath, `${user}${suffix}`), rows);
+    });
+}
+
+function applyBackupPayload(payload) {
+    if (!payload || payload.schema !== 'fx-app-backup-v1' || !payload.data) {
+        throw new Error('Файл бэкапа имеет неизвестный формат');
+    }
+    const data = payload.data;
+    const bills = Array.isArray(data.bills) ? data.bills : [];
+    const trash = Array.isArray(data.trash) ? data.trash : [];
+    const splits = Array.isArray(data.splits) ? data.splits : bills.filter(item => item?.isSplit);
+    const restoredBills = mergeItemsById(bills, splits.map(item => ({ ...item, isSplit: true })));
+    const tips = Array.isArray(data.tips) ? data.tips : [];
+    const shifts = Array.isArray(data.shifts) ? data.shifts : [];
+
+    writeJson(dbPath, restoredBills);
+    writeJson(trashPath, trash);
+    writeJson(splitPath, splits);
+    writeItemsByUserToFiles(restoredBills, '_bills.json');
+    writeItemsByUserToFiles(splits, '_splits.json');
+    writeItemsByUserToFiles(tips, '_tips.json');
+    if (sqliteReady) dbReplaceItems('tips', tips);
+    saveShiftArchiveItems(shifts);
+    if (data.auth) writeAuthStore(data.auth);
+    if (data.userSettings) writeUserSettingsStore(data.userSettings);
+    if (data.rates) writeRatesSettings(data.rates);
+    writeJsonObjectFile(historyClearMarkerPath, data.historyClearMarker || {}, {});
+    if (typeof data.dailyLog === 'string') fs.writeFileSync(logPath, data.dailyLog);
+
+    return {
+        ok: true,
+        counts: {
+            bills: restoredBills.length,
+            trash: trash.length,
+            splits: splits.length,
+            tips: tips.length,
+            shifts: shifts.length,
+            authAccounts: data.auth ? countAuthAccounts(data.auth) : 0
+        }
+    };
+}
+
+async function restoreGithubBackup(options = {}) {
+    const config = ensureBackupConfigReady(readBackupConfig());
+    const remote = await fetchGithubBackupPayload(config);
+    if (!remote.exists) return { ok: false, error: 'Бэкап в GitHub пока не найден' };
+    const local = buildBackupPayload('restore-check');
+    const remoteMeta = backupMetaFromPayload(remote.payload);
+    const localMeta = backupMetaFromPayload(local);
+    remoteMeta.backupPath = remote.backupPath || remoteMeta.backupPath;
+    const comparison = compareBackupMeta(remoteMeta, localMeta);
+    const message = backupComparisonMessage(comparison, remoteMeta, localMeta);
+    if (comparison.status === 'local-newer' && !options.force) {
+        return { ok: false, needsConfirm: true, comparison, remoteMeta, localMeta, message };
+    }
+    if (comparison.status === 'remote-empty' && !options.force) {
+        return { ok: false, needsConfirm: true, comparison, remoteMeta, localMeta, message };
+    }
+    if (comparison.status === 'different' && !options.force) {
+        return { ok: false, needsConfirm: true, comparison, remoteMeta, localMeta, message };
+    }
+    const result = applyBackupPayload(remote.payload);
+    githubBackupStatus = {
+        state: 'ok',
+        message: `Данные восстановлены из GitHub. ${message}`,
+        lastAt: new Date().toISOString(),
+        lastError: ''
+    };
+    return { ...result, comparison, remoteMeta, localMeta, message: githubBackupStatus.message };
+}
+
+async function performGithubBackup(reason = 'manual') {
+    const config = readBackupConfig();
+    if (!config.enabled) return { ok: false, skipped: true, message: 'GitHub Backup выключен' };
+    if (readNetworkConfig().mode === 'client') {
+        return { ok: true, skipped: true, message: 'На втором ПК бэкап не отправляется. Его делает главный ПК.' };
+    }
+    ensureBackupConfigReady(config);
+
+    if (githubBackupRunning) {
+        githubBackupQueuedReason = reason;
+        return { ok: true, queued: true, message: 'Бэкап уже идет, следующий запуск поставлен в очередь' };
+    }
+
+    githubBackupRunning = true;
+    githubBackupStatus = {
+        state: 'running',
+        message: 'Отправляю бэкап данных в GitHub...',
+        lastAt: githubBackupStatus.lastAt || '',
+        lastError: ''
+    };
+
+    try {
+        const payload = buildBackupPayload(reason);
+        const payloadHash = backupPayloadHash(payload);
+        const previousState = readBackupState();
+        const backupPath = backupDataFileName(config);
+        const isManualBackup = String(reason || '').startsWith('manual');
+        if (!isManualBackup && previousState.lastHash === payloadHash && previousState.backupPath === backupPath) {
+            githubBackupStatus = {
+                state: 'ok',
+                message: 'Бэкап не отправлен: данные не менялись',
+                lastAt: previousState.lastAt || githubBackupStatus.lastAt || '',
+                lastError: ''
+            };
+            return { ok: true, skipped: true, status: githubBackupStatus, meta: payload.meta };
+        }
+        const content = JSON.stringify(payload, null, 2);
+        const stamp = payload.meta.generatedAtText || formatDateTimeForUser(Date.now());
+        await writeGithubBackupFile(config, backupPath, content, `FX data backup ${backupSlot(config)} ${stamp}`);
+        writeBackupState({
+            ...previousState,
+            lastHash: payloadHash,
+            lastAt: payload.meta.generatedAt,
+            lastAtMs: payload.meta.generatedAtMs,
+            backupPath
+        });
+        githubBackupStatus = {
+            state: 'ok',
+            message: `Бэкап сохранен в GitHub: ${stamp} (${backupSlot(config)})`,
+            lastAt: payload.meta.generatedAt,
+            lastError: ''
+        };
+        return { ok: true, status: githubBackupStatus, meta: payload.meta };
+    } catch (err) {
+        githubBackupStatus = {
+            state: 'error',
+            message: 'Ошибка GitHub Backup: ' + (err.message || err),
+            lastAt: githubBackupStatus.lastAt || '',
+            lastError: err.message || String(err)
+        };
+        return { ok: false, error: err.message || String(err), status: githubBackupStatus };
+    } finally {
+        githubBackupRunning = false;
+        if (githubBackupQueuedReason) {
+            const queuedReason = githubBackupQueuedReason;
+            githubBackupQueuedReason = '';
+            scheduleGithubBackup(queuedReason, 5000);
+        }
+    }
+}
+
+function scheduleGithubBackup(reason = 'change', delayMs = 20000) {
+    touchLocalBackupChange(reason);
+    let config;
+    try {
+        config = readBackupConfig();
+    } catch {
+        return;
+    }
+    if (!config.enabled || !config.autoBackup || !config.token || !config.owner || !config.repo) return;
+    if (readNetworkConfig().mode === 'client') return;
+    if (githubBackupTimer) clearTimeout(githubBackupTimer);
+    const state = readBackupState();
+    const autoIntervalMs = Math.max(1, Number(config.autoIntervalMinutes) || DEFAULT_BACKUP_CONFIG.autoIntervalMinutes) * 60 * 1000;
+    const remainingInterval = state.lastAtMs
+        ? Math.max(0, autoIntervalMs - (Date.now() - state.lastAtMs))
+        : 0;
+    const waitMs = Math.max(BACKUP_AUTO_DEBOUNCE_MS, Number(delayMs) || BACKUP_AUTO_DEBOUNCE_MS, remainingInterval);
+    githubBackupStatus = {
+        ...githubBackupStatus,
+        state: 'pending',
+        message: `Бэкап будет отправлен в GitHub через ${Math.ceil(waitMs / 1000)} сек.`,
+        lastError: ''
+    };
+    githubBackupTimer = setTimeout(() => {
+        githubBackupTimer = null;
+        performGithubBackup(reason).catch(err => {
+            githubBackupStatus = {
+                state: 'error',
+                message: 'Ошибка GitHub Backup: ' + (err.message || err),
+                lastAt: githubBackupStatus.lastAt || '',
+                lastError: err.message || String(err)
+            };
+        });
+    }, waitMs);
+}
+
+function markDataChangedForBackup(result, reason = 'change', delayMs = 20000) {
+    if (result !== false && result?.ok !== false) scheduleGithubBackup(reason, delayMs);
+    return result;
 }
 
 function buildManifestFromDownloadedFiles(files) {
@@ -911,7 +1744,7 @@ function requestJson(method, urlString, payload, timeoutMs = 2500) {
 }
 
 function shouldUseRemote(channel) {
-    if (['get-network-config', 'save-network-config', 'test-network-connection', 'find-network-hosts', 'print-shift-report', 'check-app-update', 'install-app-update', 'restart-app', 'get-app-manifest'].includes(channel)) {
+    if (['get-network-config', 'save-network-config', 'test-network-connection', 'find-network-hosts', 'print-shift-report', 'check-app-update', 'install-app-update', 'restart-app', 'get-app-manifest', 'get-github-backup-config', 'save-github-backup-config', 'get-github-backup-status', 'run-github-backup', 'check-github-backup', 'restore-github-backup', 'clear-github-backup-repository-fields', 'get-user-settings', 'save-user-settings'].includes(channel)) {
         return false;
     }
     const config = readNetworkConfig();
@@ -1716,20 +2549,21 @@ async function handleLocalChannel(channel, payload) {
         case 'get-auth-store':
             return { ok: true, store: readAuthStore(), path: authAccountsPath };
         case 'save-auth-account':
-            return saveAuthAccount(payload);
+            return markDataChangedForBackup(saveAuthAccount(payload), 'auth-account', 5000);
         case 'delete-auth-account':
-            return deleteAuthAccount(payload);
+            return markDataChangedForBackup(deleteAuthAccount(payload), 'auth-account-delete', 5000);
         case 'merge-auth-store':
-            return mergeAuthStore(payload);
+            return markDataChangedForBackup(mergeAuthStore(payload), 'auth-account-merge', 5000);
         case 'get-rates':
             return { ok: true, rates: readRatesSettings(), path: ratesSettingsPath };
         case 'save-rates':
-            return { ok: true, rates: writeRatesSettings(payload?.rates || payload), path: ratesSettingsPath };
+            return markDataChangedForBackup({ ok: true, rates: writeRatesSettings(payload?.rates || payload), path: ratesSettingsPath }, 'rates', 5000);
         case 'save-bill':
             saveBill(payload);
+            scheduleGithubBackup('save-bill', 5000);
             return { ok: true };
         case 'delete-bill':
-            return deleteBillToTrash(payload?.id, payload?.item);
+            return markDataChangedForBackup(deleteBillToTrash(payload?.id, payload?.item), 'delete-bill', 5000);
         case 'get-trash-data':
             return readJson(trashPath);
         case 'get-history-data':
@@ -1749,27 +2583,27 @@ async function handleLocalChannel(channel, payload) {
             return sortNewestFirst(tips.filter(tip => !isDeletedOrClosed(tip)));
         }
         case 'save-split-payment':
-            return saveSplitPayment(payload);
+            return markDataChangedForBackup(saveSplitPayment(payload), 'save-split-payment', 5000);
         case 'get-split-payments':
             return readJson(splitPath);
         case 'delete-split-payment':
-            return deleteSplitPayment(payload);
+            return markDataChangedForBackup(deleteSplitPayment(payload), 'delete-split-payment', 5000);
         case 'restore-from-trash':
-            return restoreFromTrashItem(payload);
+            return markDataChangedForBackup(restoreFromTrashItem(payload), 'restore-from-trash', 5000);
         case 'save-tip':
-            return saveTipEntry(payload);
+            return markDataChangedForBackup(saveTipEntry(payload), 'save-tip', 5000);
         case 'delete-tip':
-            return deleteTipEntry(payload);
+            return markDataChangedForBackup(deleteTipEntry(payload), 'delete-tip', 5000);
         case 'close-shift':
-            return closeShiftForUser(payload?.user, payload);
+            return markDataChangedForBackup(closeShiftForUser(payload?.user, payload), 'close-shift', 1000);
         case 'clear-developer-history':
-            return clearDeveloperHistory(payload?.user);
+            return markDataChangedForBackup(clearDeveloperHistory(payload?.user), 'clear-developer-history', 1000);
         case 'clear-common-history':
-            return clearCommonHistory(payload?.user);
+            return markDataChangedForBackup(clearCommonHistory(payload?.user), 'clear-common-history', 1000);
         case 'get-shift-archive':
             return shiftArchiveItems();
         case 'clear-week-history':
-            return clearWeekShiftArchive(payload);
+            return markDataChangedForBackup(clearWeekShiftArchive(payload), 'clear-week-history', 1000);
         default:
             return [];
     }
@@ -1946,10 +2780,12 @@ Write-Output $result.Text
 }
 
 const posAmountMinReliableAmount = 400;
-const posWindowTitlePattern = /GregSys\s*POS/i;
+const posCaptureHideWaitMs = 75;
+const posOcrScale = 1.7;
 const posOcrDebugDir = path.join(electronProfilePath, 'ocr_debug');
 let posOcrDebugWindow = null;
 let mainCurrentRole = '';
+let mainCurrentSettings = { ...DEFAULT_USER_SETTINGS };
 
 function escapeDebugHtml(value = '') {
     return String(value)
@@ -2054,6 +2890,7 @@ ${rows || '<div class="card">Скриншотов для OCR нет. Возмо�
 async function readPosAmountFromCapturePaths(capturePaths = [], sourceLabel = '', options = {}) {
     const debugItems = [];
     let bestSmallResult = null;
+    const minReliableAmount = Math.max(1, Number(options.minReliableAmount) || posAmountMinReliableAmount);
     try {
         for (const capturePath of capturePaths) {
             const debugItem = options.debug ? {
@@ -2079,14 +2916,14 @@ async function readPosAmountFromCapturePaths(capturePaths = [], sourceLabel = ''
                 continue;
             }
             const result = { ok: true, amount: amount.value, raw: amount.raw, text, source: sourceLabel };
-            if (amount.value >= posAmountMinReliableAmount) {
+            if (amount.value >= minReliableAmount) {
                 if (debugItem) {
                     debugItem.accepted = true;
                     debugItem.reason = 'выбрано';
                 }
                 return { result, debugItems };
             }
-            if (debugItem) debugItem.reason = `меньше ${posAmountMinReliableAmount}`;
+            if (debugItem) debugItem.reason = `меньше ${minReliableAmount}`;
             if (!bestSmallResult || amount.value > bestSmallResult.amount) {
                 bestSmallResult = result;
             }
@@ -2100,163 +2937,252 @@ async function readPosAmountFromCapturePaths(capturePaths = [], sourceLabel = ''
     return { result: null, debugItems };
 }
 
-async function capturePosWindowForAmount() {
-    if (!desktopCapturer) return null;
-    const sources = await desktopCapturer.getSources({
-        types: ['window'],
-        thumbnailSize: { width: 2600, height: 1800 },
-        fetchWindowIcons: false
-    });
-    const source = sources.find(item => posWindowTitlePattern.test(String(item.name || '')));
-    if (!source || source.thumbnail.isEmpty()) return null;
-
-    const image = source.thumbnail;
-    const size = image.getSize();
-    const stamp = Date.now();
-    const capturePaths = [];
-    const writeCapture = (captureImage, label) => {
-        if (!captureImage || captureImage.isEmpty()) return;
-        const capturePath = path.join(electronProfilePath, `pos_window_amount_${stamp}_${label}.png`);
-        fs.writeFileSync(capturePath, captureImage.toPNG());
-        capturePaths.push(capturePath);
-    };
-    const writeCrop = (label, rect) => {
-        const cropRect = {
-            x: Math.max(0, Math.floor(rect.x)),
-            y: Math.max(0, Math.floor(rect.y)),
-            width: Math.max(1, Math.floor(rect.width)),
-            height: Math.max(1, Math.floor(rect.height))
-        };
-        cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
-        cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
-        if (cropRect.width <= 1 || cropRect.height <= 1) return;
-        const crop = image.crop(cropRect);
-        const enlarged = crop.resize({
-            width: Math.min(2600, Math.max(cropRect.width, Math.round(cropRect.width * 1.9))),
-            height: Math.min(1200, Math.max(cropRect.height, Math.round(cropRect.height * 1.9))),
-            quality: 'best'
-        });
-        writeCapture(enlarged, label);
-    };
-
-    writeCrop('bottom_total', {
-        x: 0,
-        y: size.height * 0.78,
-        width: size.width * 0.55,
-        height: size.height * 0.16
-    });
-    writeCrop('right_payment_total', {
-        x: size.width * 0.48,
-        y: size.height * 0.36,
-        width: size.width * 0.52,
-        height: size.height * 0.16
-    });
-    writeCapture(image, 'full');
-    return capturePaths.length ? capturePaths : null;
+function areaIntersection(a, b) {
+    const left = Math.max(a.x, b.x);
+    const top = Math.max(a.y, b.y);
+    const right = Math.min(a.x + a.width, b.x + b.width);
+    const bottom = Math.min(a.y + a.height, b.y + b.height);
+    const width = Math.max(0, right - left);
+    const height = Math.max(0, bottom - top);
+    return { x: left, y: top, width, height, area: width * height };
 }
 
-async function captureDisplayForPosAmount(display, index = 0, options = {}) {
-    if (!desktopCapturer || !display) return null;
+function displayForPosOcrArea(area) {
+    const displays = screen.getAllDisplays();
+    let best = null;
+    let bestArea = 0;
+    displays.forEach(display => {
+        const hit = areaIntersection(area, display.bounds);
+        if (hit.area > bestArea) {
+            bestArea = hit.area;
+            best = display;
+        }
+    });
+    if (best) return best;
+    return screen.getDisplayNearestPoint({
+        x: Math.round(area.x + area.width / 2),
+        y: Math.round(area.y + area.height / 2)
+    });
+}
+
+async function captureConfiguredPosArea(area, options = {}) {
+    if (!desktopCapturer) throw new Error('Захват экрана недоступен');
+    const normalized = normalizePosOcrArea(area);
+    if (!normalized) throw new Error('Область POS не выбрана');
+
+    const display = displayForPosOcrArea(normalized);
+    if (!display) throw new Error('Не найден экран для выбранной области POS');
+
     const scaleFactor = Number(display.scaleFactor) || 1;
-    const width = Math.max(1, Math.round((display.size?.width || 1280) * scaleFactor));
-    const height = Math.max(1, Math.round((display.size?.height || 720) * scaleFactor));
+    const width = Math.max(1, Math.round((display.size?.width || display.bounds.width) * scaleFactor));
+    const height = Math.max(1, Math.round((display.size?.height || display.bounds.height) * scaleFactor));
     const sources = await desktopCapturer.getSources({
         types: ['screen'],
         thumbnailSize: { width, height }
     });
-    const source = sources.find(item => String(item.display_id || '') === String(display.id || '')) || sources[index] || sources[0];
-    if (!source || source.thumbnail.isEmpty()) return null;
+    const source = sources.find(item => String(item.display_id || '') === String(display.id || '')) || sources[0];
+    if (!source || source.thumbnail.isEmpty()) throw new Error('Не удалось сделать скрин выбранного экрана');
 
     const image = source.thumbnail;
     const size = image.getSize();
-    const stamp = Date.now();
-    const capturePaths = [];
-    const writeCapture = (captureImage, label) => {
-        if (!captureImage || captureImage.isEmpty()) return;
-        const capturePath = path.join(electronProfilePath, `pos_amount_capture_${stamp}_${index}_${label}.png`);
-        fs.writeFileSync(capturePath, captureImage.toPNG());
-        capturePaths.push(capturePath);
+    const cropRect = {
+        x: Math.max(0, Math.round((normalized.x - display.bounds.x) * scaleFactor)),
+        y: Math.max(0, Math.round((normalized.y - display.bounds.y) * scaleFactor)),
+        width: Math.max(1, Math.round(normalized.width * scaleFactor)),
+        height: Math.max(1, Math.round(normalized.height * scaleFactor))
     };
-    const writeCrop = (label, rect) => {
-        const cropRect = {
-            x: Math.max(0, Math.floor(rect.x)),
-            y: Math.max(0, Math.floor(rect.y)),
-            width: Math.max(1, Math.floor(rect.width)),
-            height: Math.max(1, Math.floor(rect.height))
-        };
-        cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
-        cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
-        if (cropRect.width <= 1 || cropRect.height <= 1) return;
-        const crop = image.crop(cropRect);
-        const enlarged = crop.resize({
-            width: Math.min(2600, Math.max(cropRect.width, Math.round(cropRect.width * 1.8))),
-            height: Math.min(1900, Math.max(cropRect.height, Math.round(cropRect.height * 1.8))),
-            quality: 'best'
-        });
-        writeCapture(enlarged, label);
-    };
+    cropRect.width = Math.min(cropRect.width, size.width - cropRect.x);
+    cropRect.height = Math.min(cropRect.height, size.height - cropRect.y);
+    if (cropRect.width <= 1 || cropRect.height <= 1) {
+        throw new Error('Выбранная область POS вышла за пределы экрана');
+    }
 
-    writeCrop('pos_total_band', {
-        x: 0,
-        y: size.height * 0.58,
-        width: size.width * 0.56,
-        height: size.height * 0.34
+    const crop = image.crop(cropRect);
+    const enlarged = crop.resize({
+        width: Math.min(1800, Math.max(cropRect.width, Math.round(cropRect.width * posOcrScale))),
+        height: Math.min(900, Math.max(cropRect.height, Math.round(cropRect.height * posOcrScale))),
+        quality: 'best'
     });
-    writeCrop('left_bottom', {
-        x: 0,
-        y: size.height * 0.48,
-        width: size.width * 0.44,
-        height: size.height * 0.48
-    });
-    writeCrop('left_total_area', {
-        x: 0,
-        y: size.height * 0.18,
-        width: size.width * 0.44,
-        height: size.height * 0.72
-    });
-    if (options.debug) writeCapture(image, 'full');
-    return capturePaths.length ? capturePaths : null;
+    const stamp = Date.now();
+    const capturePath = path.join(electronProfilePath, `pos_configured_area_${stamp}.png`);
+    fs.writeFileSync(capturePath, enlarged.toPNG());
+    return capturePath;
 }
 
 async function readPosAmountFromScreen(options = {}) {
     if (options.debug) resetPosOcrDebugDir();
-    const debugItems = [];
+    const { exists, area } = readPosOcrArea();
+    if (!exists) {
+        return { ok: false, error: 'config.json отсутствует. Выберите область POS в настройках.', debugItems: [] };
+    }
+    if (!area) {
+        return { ok: false, error: 'Область POS не выбрана. Откройте настройки и нажмите "Выбрать область".', debugItems: [] };
+    }
 
+    let capturePath = '';
     try {
-        const posWindowCaptures = await capturePosWindowForAmount();
-        if (posWindowCaptures?.length) {
-            const posWindowRead = await readPosAmountFromCapturePaths(posWindowCaptures, 'GregSys POS window', options);
-            debugItems.push(...(posWindowRead.debugItems || []));
-            if (posWindowRead.result) return { ...posWindowRead.result, debugItems };
-        }
+        capturePath = await captureConfiguredPosArea(area, options);
+        const read = await readPosAmountFromCapturePaths([capturePath], 'saved POS area', {
+            ...options,
+            minReliableAmount: 1
+        });
+        if (read.result) return { ...read.result, area, debugItems: read.debugItems || [] };
+        return { ok: false, error: 'OCR ничего не распознал в выбранной области POS', area, debugItems: read.debugItems || [] };
     } catch (err) {
-        console.error('[POS OCR] POS window capture failed:', err);
+        if (capturePath) fs.promises.unlink(capturePath).catch(() => {});
+        return { ok: false, error: err.message || String(err), area, debugItems: [] };
     }
+}
 
+function virtualScreenBounds() {
     const displays = screen.getAllDisplays();
-    const cursorDisplay = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-    const primaryDisplay = screen.getPrimaryDisplay();
-    const orderedDisplays = [
-        cursorDisplay,
-        primaryDisplay,
-        ...displays
-    ].filter((display, index, list) => display && list.findIndex(item => item.id === display.id) === index);
-
-    for (let i = 0; i < orderedDisplays.length; i++) {
-        let capturePaths = [];
-        try {
-            capturePaths = await captureDisplayForPosAmount(orderedDisplays[i], i, options) || [];
-            const screenRead = await readPosAmountFromCapturePaths(capturePaths, `screen:${orderedDisplays[i].id}`, options);
-            debugItems.push(...(screenRead.debugItems || []));
-            capturePaths = [];
-            if (screenRead.result) return { ...screenRead.result, debugItems };
-        } catch (err) {
-            console.error('[POS OCR] Capture failed:', err);
-        } finally {
-            capturePaths.forEach(capturePath => fs.promises.unlink(capturePath).catch(() => {}));
-        }
+    if (!displays.length) {
+        const primary = screen.getPrimaryDisplay();
+        return primary.bounds;
     }
-    return { ok: false, error: 'Сумма POS не найдена', debugItems };
+    const left = Math.min(...displays.map(display => display.bounds.x));
+    const top = Math.min(...displays.map(display => display.bounds.y));
+    const right = Math.max(...displays.map(display => display.bounds.x + display.bounds.width));
+    const bottom = Math.max(...displays.map(display => display.bounds.y + display.bounds.height));
+    return { x: left, y: top, width: right - left, height: bottom - top };
+}
+
+let posAreaSelectionWindow = null;
+let posAreaSelectionResolver = null;
+
+function closePosAreaSelection(result) {
+    if (posAreaSelectionResolver) {
+        const resolve = posAreaSelectionResolver;
+        posAreaSelectionResolver = null;
+        resolve(result);
+    }
+    if (posAreaSelectionWindow && !posAreaSelectionWindow.isDestroyed()) {
+        posAreaSelectionWindow.close();
+    }
+    posAreaSelectionWindow = null;
+}
+
+function selectPosOcrAreaOverlay() {
+    if (posAreaSelectionWindow && !posAreaSelectionWindow.isDestroyed()) {
+        posAreaSelectionWindow.focus();
+        return Promise.resolve({ ok: false, error: 'Выбор области уже открыт' });
+    }
+
+    const wasVisible = win && !win.isDestroyed() && win.isVisible();
+    const wasMinimized = win && !win.isDestroyed() && win.isMinimized();
+    if (win && !win.isDestroyed()) {
+        win.hide();
+    }
+
+    const bounds = virtualScreenBounds();
+    return new Promise(resolve => {
+        posAreaSelectionResolver = result => {
+            if (wasVisible && win && !win.isDestroyed()) {
+                if (wasMinimized) win.minimize();
+                else showWindowForHotkey();
+            }
+            resolve(result);
+        };
+
+        posAreaSelectionWindow = new BrowserWindow({
+            x: bounds.x,
+            y: bounds.y,
+            width: bounds.width,
+            height: bounds.height,
+            frame: false,
+            transparent: true,
+            fullscreenable: false,
+            alwaysOnTop: true,
+            skipTaskbar: true,
+            resizable: false,
+            movable: false,
+            webPreferences: {
+                nodeIntegration: true,
+                contextIsolation: false
+            }
+        });
+        posAreaSelectionWindow.setAlwaysOnTop(true, 'screen-saver');
+        posAreaSelectionWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+        posAreaSelectionWindow.on('closed', () => {
+            if (posAreaSelectionResolver) closePosAreaSelection({ ok: false, error: 'Выбор области отменен' });
+        });
+
+        const html = `<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; cursor: crosshair; background: rgba(0,0,0,0.10); user-select: none; }
+#hint { position: fixed; left: 50%; top: 18px; transform: translateX(-50%); padding: 10px 14px; border-radius: 10px; background: rgba(17,24,32,.94); color: #fff; font: 800 14px Arial, sans-serif; box-shadow: 0 8px 22px rgba(0,0,0,.35); pointer-events: none; }
+#rect { position: fixed; display: none; border: 3px solid #00e6c3; background: rgba(0,230,195,.14); box-shadow: 0 0 0 9999px rgba(0,0,0,.18); }
+#size { position: fixed; display: none; padding: 5px 8px; border-radius: 7px; background: #111820; color: #55efc4; font: 800 12px Arial, sans-serif; pointer-events: none; }
+</style>
+</head>
+<body>
+<div id="hint">Выделите мышкой область суммы POS. ESC - отмена.</div>
+<div id="rect"></div>
+<div id="size"></div>
+<script>
+const { ipcRenderer } = require('electron');
+const offset = ${JSON.stringify({ x: bounds.x, y: bounds.y })};
+let start = null;
+let current = null;
+const rect = document.getElementById('rect');
+const size = document.getElementById('size');
+function draw() {
+  if (!start || !current) return;
+  const x = Math.min(start.x, current.x);
+  const y = Math.min(start.y, current.y);
+  const width = Math.abs(current.x - start.x);
+  const height = Math.abs(current.y - start.y);
+  rect.style.display = 'block';
+  rect.style.left = x + 'px';
+  rect.style.top = y + 'px';
+  rect.style.width = width + 'px';
+  rect.style.height = height + 'px';
+  size.style.display = 'block';
+  size.style.left = (x + width + 8) + 'px';
+  size.style.top = y + 'px';
+  size.textContent = Math.round(width) + ' x ' + Math.round(height);
+}
+window.addEventListener('mousedown', event => {
+  start = { x: event.clientX, y: event.clientY };
+  current = { ...start };
+  draw();
+});
+window.addEventListener('mousemove', event => {
+  if (!start) return;
+  current = { x: event.clientX, y: event.clientY };
+  draw();
+});
+window.addEventListener('mouseup', event => {
+  if (!start) return;
+  current = { x: event.clientX, y: event.clientY };
+  const x = Math.min(start.x, current.x);
+  const y = Math.min(start.y, current.y);
+  const width = Math.abs(current.x - start.x);
+  const height = Math.abs(current.y - start.y);
+  if (width < 8 || height < 8) {
+    ipcRenderer.send('pos-ocr-area-cancelled');
+    return;
+  }
+  ipcRenderer.send('pos-ocr-area-selected', {
+    x: Math.round(x + offset.x),
+    y: Math.round(y + offset.y),
+    width: Math.round(width),
+    height: Math.round(height)
+  });
+});
+window.addEventListener('keydown', event => {
+  if (event.key === 'Escape') ipcRenderer.send('pos-ocr-area-cancelled');
+});
+</script>
+</body>
+</html>`;
+        posAreaSelectionWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`);
+        posAreaSelectionWindow.show();
+        posAreaSelectionWindow.focus();
+    });
 }
 
 let posAmountHotkeyBusy = false;
@@ -2269,7 +3195,7 @@ async function importPosAmountHotkey() {
         if (shouldHideForCapture) {
             win.setAlwaysOnTop(false);
             win.hide();
-            await wait(130);
+            await wait(posCaptureHideWaitMs);
         }
         const result = await readPosAmountFromScreen();
         showWindowForHotkey({ suppressAutoFocus: Boolean(result?.ok) });
@@ -2279,6 +3205,9 @@ async function importPosAmountHotkey() {
                 raw: result.raw
             });
         } else {
+            win.webContents.send('pos-amount-error', {
+                error: result?.error || 'OCR ничего не распознал'
+            });
             focusMainAmountInput();
         }
     } catch (err) {
@@ -2290,6 +3219,18 @@ async function importPosAmountHotkey() {
     }
 }
 
+async function importPosAmountRequest(options = {}) {
+    const shouldHideForCapture = win && !win.isDestroyed() && win.isVisible() && !win.isMinimized();
+    if (shouldHideForCapture) {
+        win.setAlwaysOnTop(false);
+        win.hide();
+        await wait(posCaptureHideWaitMs);
+    }
+    const result = await readPosAmountFromScreen(options);
+    showWindowForHotkey({ suppressAutoFocus: Boolean(result?.ok) });
+    return result;
+}
+
 async function debugPosAmountHotkey() {
     if (mainCurrentRole !== 'developer') return;
     if (posAmountHotkeyBusy) return;
@@ -2299,7 +3240,7 @@ async function debugPosAmountHotkey() {
         if (shouldHideForCapture) {
             win.setAlwaysOnTop(false);
             win.hide();
-            await wait(130);
+            await wait(posCaptureHideWaitMs);
         }
         const result = await readPosAmountFromScreen({ debug: true });
         showWindowForHotkey();
@@ -2318,6 +3259,7 @@ function registerWindowHotkeys() {
     ['F1'].forEach(accelerator => {
         try {
             globalShortcut.register(accelerator, () => {
+                if (!mainCurrentSettings.enableF1Toggle) return;
                 toggleWindowVisibilityHotkey();
             });
         } catch (err) {
@@ -2326,6 +3268,7 @@ function registerWindowHotkeys() {
     });
     try {
         globalShortcut.register('F3', () => {
+            if (!mainCurrentSettings.enableF3Import) return;
             importPosAmountHotkey().catch(err => console.error('[HOTKEY] F3 import failed:', err));
         });
     } catch (err) {
@@ -2344,6 +3287,20 @@ function registerWindowHotkeys() {
 
 ipcMain.on('set-current-session-role', (event, payload = {}) => {
     mainCurrentRole = String(payload.role || '').trim();
+    mainCurrentSettings = normalizeUserSettings(payload.settings || {});
+});
+
+ipcMain.on('pos-ocr-area-selected', (event, area) => {
+    try {
+        const savedArea = writePosOcrArea(area);
+        closePosAreaSelection({ ok: true, area: savedArea, path: appConfigPath });
+    } catch (err) {
+        closePosAreaSelection({ ok: false, error: err.message || String(err), path: appConfigPath });
+    }
+});
+
+ipcMain.on('pos-ocr-area-cancelled', () => {
+    closePosAreaSelection({ ok: false, error: 'Выбор области отменен', path: appConfigPath });
 });
 
 // 1. Сохранение и логирование
@@ -2387,6 +3344,7 @@ ipcMain.on('move-to-trash', (event, transaction) => {
         let trash = readJson(trashPath);
         trash = upsertById(trash, transaction);
         writeJson(trashPath, trash);
+        scheduleGithubBackup('move-to-trash', 5000);
         console.log('[TRASH] Чек перемещен в корзину:', transaction.id);
     } catch (e) { console.error("Ошибка перемещения в корзину:", e); }
 });
@@ -2509,6 +3467,117 @@ ipcMain.handle('save-network-config', async (event, configInput) => {
     } catch (err) {
         console.error("Ошибка сохранения настроек сети:", err);
         return { ok: false, error: err.message };
+    }
+});
+
+ipcMain.handle('get-user-settings', async (event, payload) => {
+    try {
+        return { ok: true, settings: readUserSettings(payload || {}) };
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), settings: normalizeUserSettings({}) };
+    }
+});
+
+ipcMain.handle('save-user-settings', async (event, payload) => {
+    try {
+        const result = writeUserSettings(payload || {});
+        mainCurrentSettings = normalizeUserSettings(result.settings);
+        return result;
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), settings: normalizeUserSettings({}) };
+    }
+});
+
+ipcMain.handle('get-pos-ocr-config', async () => {
+    const { exists, area } = readPosOcrArea();
+    return { ok: true, exists, area, path: appConfigPath };
+});
+
+ipcMain.handle('save-pos-ocr-area', async (event, payload) => {
+    try {
+        const area = writePosOcrArea(payload?.area || payload);
+        return { ok: true, area, path: appConfigPath };
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), path: appConfigPath };
+    }
+});
+
+ipcMain.handle('select-pos-ocr-area', async () => {
+    try {
+        return await selectPosOcrAreaOverlay();
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), path: appConfigPath };
+    }
+});
+
+ipcMain.handle('test-pos-ocr-area', async () => {
+    try {
+        return await importPosAmountRequest({ debug: true, minReliableAmount: 1 });
+    } catch (err) {
+        showWindowForHotkey();
+        return { ok: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('import-pos-amount', async () => {
+    try {
+        return await importPosAmountRequest({ minReliableAmount: 1 });
+    } catch (err) {
+        showWindowForHotkey();
+        return { ok: false, error: err.message || String(err) };
+    }
+});
+
+ipcMain.handle('get-github-backup-config', async () => {
+    try {
+        return { ok: true, config: publicBackupConfig(), status: githubBackupStatus };
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), config: publicBackupConfig(DEFAULT_BACKUP_CONFIG), status: githubBackupStatus };
+    }
+});
+
+ipcMain.handle('save-github-backup-config', async (event, payload) => {
+    try {
+        const config = writeBackupConfig(payload || {});
+        return { ok: true, config: publicBackupConfig(config), status: githubBackupStatus };
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), config: publicBackupConfig(), status: githubBackupStatus };
+    }
+});
+
+ipcMain.handle('get-github-backup-status', async () => {
+    return { ok: true, status: githubBackupStatus, config: publicBackupConfig() };
+});
+
+ipcMain.handle('run-github-backup', async (event, payload) => {
+    try {
+        return await performGithubBackup(payload?.reason || 'manual');
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), status: githubBackupStatus };
+    }
+});
+
+ipcMain.handle('check-github-backup', async () => {
+    try {
+        return await checkGithubBackup();
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), status: githubBackupStatus };
+    }
+});
+
+ipcMain.handle('restore-github-backup', async (event, payload) => {
+    try {
+        return await restoreGithubBackup(payload || {});
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), status: githubBackupStatus };
+    }
+});
+
+ipcMain.handle('clear-github-backup-repository-fields', async () => {
+    try {
+        return clearGithubBackupRepositoryFields();
+    } catch (err) {
+        return { ok: false, error: err.message || String(err), config: publicBackupConfig(), status: githubBackupStatus };
     }
 });
 

@@ -44,11 +44,11 @@
     .wrapper { width: min(100%, 1180px); max-width: calc(100vw - 20px); display: none; gap: 20px; flex-wrap: nowrap; align-items: flex-start; }
     .calc-container { flex: 1 1 520px; min-width: 0; max-width: 560px; }
 
-    #loginOverlay, #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000; }
+    #loginOverlay, #ratesOverlay, #splitOverlay, #splitPartsOverlay, #shiftOverlay, #manualTipOverlay, #userSettingsOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.85); backdrop-filter: blur(5px); display: flex; justify-content: center; align-items: center; z-index: 10000; }
     #loginOverlay { align-items: flex-start; overflow-y: auto; padding: 18px 10px; box-sizing: border-box; }
-    #ratesOverlay, #splitOverlay, #shiftOverlay, #manualTipOverlay { display: none; }
-    #splitOverlay { overflow-y: auto; align-items: center; padding: 12px; box-sizing: border-box; }
-    #splitOverlay .login-box { max-height: calc(100vh - 24px); overflow-y: auto; }
+    #ratesOverlay, #splitOverlay, #splitPartsOverlay, #shiftOverlay, #manualTipOverlay, #userSettingsOverlay { display: none; }
+    #splitOverlay, #splitPartsOverlay { overflow-y: auto; align-items: center; padding: 12px; box-sizing: border-box; }
+    #splitOverlay .login-box, #splitPartsOverlay .login-box { max-height: calc(100vh - 24px); overflow-y: auto; }
     .login-box { background: white; padding: 30px; border-radius: 25px; text-align: center; width: 340px; }
     .login-shell { width: 100%; max-width: 790px; display: flex; gap: 14px; align-items: flex-start; justify-content: center; flex-wrap: wrap; }
     #loginOverlay .login-box { flex: 0 0 340px; box-sizing: border-box; }
@@ -99,11 +99,30 @@
     .connection-card.collapsed .connection-body { display: none; }
     .connection-card.collapsed .connection-summary { display: block; }
     .connection-card.collapsed { padding-bottom: 14px; }
+    .connection-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 12px 0 4px; }
+    .connection-tab { border: 2px solid #2d3436; border-radius: 10px; padding: 10px 7px; background: #111820; color: #fff; font-size: 11px; font-weight: 900; cursor: pointer; }
+    .connection-tab.active { border-color: #55efc4; color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.12); }
+    .connection-panel.hidden { display: none; }
     .app-version-badge { margin-top: 8px; padding: 7px 9px; border-radius: 9px; background: #111820; color: #55efc4; font-size: 11px; font-weight: 900; line-height: 1.25; }
     .update-status { display: none; min-height: 18px; margin-top: 8px; padding: 8px 9px; border-radius: 10px; background: #edf1f4; color: #2d3436; font-size: 11px; font-weight: 800; line-height: 1.25; }
     .update-status.ok { display: block; background: #e8f8f1; color: #0f7a45; }
     .update-status.warn { display: block; background: #00ADB5; color: #111820; }
     .update-status.bad { display: block; background: #ffe6e6; color: #b00020; }
+    .backup-divider { height: 1px; background: #dfe6ec; margin: 14px 0 10px; }
+    .backup-title { color: #2d3436; font-size: 13px; font-weight: 900; margin-bottom: 4px; }
+    .backup-toggle-row { display: grid; grid-template-columns: 1fr 50px; align-items: center; gap: 10px; margin-top: 10px; padding: 10px; border-radius: 12px; background: #edf2f5; color: #2d3436; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .backup-toggle-row input { display: none; }
+    .backup-switch { position: relative; width: 48px; height: 26px; border-radius: 999px; background: #9aa5aa; box-shadow: inset 0 2px 5px rgba(0,0,0,0.25); transition: 0.18s ease; }
+    .backup-switch::after { content: ""; position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: 0 2px 5px rgba(0,0,0,0.28); transition: 0.18s ease; }
+    .backup-toggle-row input:checked + .backup-switch { background: #00ADB5; }
+    .backup-toggle-row input:checked + .backup-switch::after { transform: translateX(22px); }
+    #connectionBackupPanel.backup-disabled .backup-menu-item { display: none !important; }
+    .backup-check { display: flex; align-items: center; gap: 8px; color: #2d3436; font-size: 12px; font-weight: 900; margin-top: 10px; }
+    .backup-check input { width: auto !important; transform: scale(1.08); }
+    .backup-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+    .connection-btn.restore { background: #00ADB5; color: #111820; }
+    .connection-btn.danger { background: #d63031; color: #fff; }
+    .backup-actions .connection-btn.full { grid-column: 1 / -1; }
     .connection-found { display: grid; gap: 6px; margin-top: 8px; }
     .connection-found button { width: 100%; border: 1px solid #55efc4; border-radius: 10px; padding: 9px; background: #111820; color: #55efc4; font-size: 12px; font-weight: 900; cursor: pointer; text-align: left; }
     #appPromptOverlay { position: fixed; inset: 0; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.45); z-index: 20000; }
@@ -118,10 +137,38 @@
 
     .user-top-line { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
     .user-badge { background: #4a76c5; color: white; padding: 5px 15px; border-radius: 20px; font-size: 12px; display: inline-block; font-weight: bold; }
+    .settings-btn { height: 30px; padding: 0 11px; border: none; border-radius: 15px; background: #00ADB5; color: #111820; font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #08787d; text-transform: uppercase; }
+    .settings-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #08787d; }
     .logout-btn { margin-left: auto; height: 30px; padding: 0 12px; border: none; border-radius: 15px; background: #111820; color: #55efc4; font-size: 11px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #05080a; text-transform: uppercase; }
     .logout-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #05080a; }
     .emergency-close-btn { display: none; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 50%; background: #d63031; color: #fff; font-size: 15px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; line-height: 1; }
     .emergency-close-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
+    .user-settings-box { width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 30px); overflow: auto; background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 18px 45px rgba(0,0,0,0.32); }
+    .user-settings-box h3 { margin: 0 0 12px; color: #111820; font-size: 18px; font-weight: 900; text-align: center; }
+    .user-settings-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 6px; border-radius: 14px; background: #edf2f5; }
+    .user-settings-tab { border: none; border-radius: 10px; padding: 11px 8px; background: transparent; color: #2d3436; font-size: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
+    .user-settings-tab.active { background: #111820; color: #55efc4; box-shadow: 0 3px 0 #05080a; }
+    .user-settings-page { display: none; }
+    .user-settings-page.active { display: block; }
+    .user-settings-section-title { margin: 14px 0 8px; padding-top: 10px; border-top: 1px solid #dfe6ec; color: #111820; font-size: 13px; font-weight: 900; text-transform: uppercase; }
+    .user-settings-row { display: grid; grid-template-columns: 46px 1fr; gap: 10px; align-items: center; padding: 11px; margin-bottom: 8px; border: 1px solid #dfe6ec; border-radius: 12px; background: #f5f7f9; color: #2d3436; font-size: 13px; font-weight: 800; }
+    .user-settings-row input { width: 26px; height: 26px; accent-color: #00ADB5; }
+    .user-settings-row small { display: block; margin-top: 3px; color: #7f8c8d; font-size: 11px; font-weight: 700; line-height: 1.25; }
+    .pos-area-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
+    .pos-area-field label { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 900; color: #4f5b66; text-transform: uppercase; }
+    .pos-area-field input { width: 100%; box-sizing: border-box; border: 2px solid #263238; border-radius: 10px; background: #111820; color: #fff; padding: 10px 8px; font-size: 15px; font-weight: 900; outline: none; }
+    .pos-area-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+    .pos-area-actions button { border: none; border-radius: 12px; padding: 12px 8px; background: #00ADB5; color: #111820; font-size: 12px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #08787d; text-transform: uppercase; }
+    .pos-area-actions button:active { transform: translateY(2px); box-shadow: 0 1px 0 #08787d; }
+    .pos-area-status { display: none; padding: 8px 10px; border-radius: 10px; background: #e8f8f5; color: #08787d; font-size: 12px; font-weight: 800; white-space: pre-line; }
+    .pos-area-status.bad { background: #ffe9e9; color: #d63031; }
+    .backup-range-label { display:flex; justify-content:space-between; align-items:center; gap:8px; }
+    .backup-range-label b { color:#00ADB5; }
+    #backupInterval { width:100%; accent-color:#00ADB5; }
+    .user-settings-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+    .user-settings-actions button { border: none; border-radius: 12px; padding: 13px 10px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; }
+    .user-settings-save { background: #27ae60; box-shadow: 0 3px 0 #1f8b4d; }
+    .user-settings-cancel { background: #2d3436; box-shadow: 0 3px 0 #161a1b; }
 
     .rates-header { background: rgba(255,255,255,0.65); padding: 6px 8px; border-radius: 8px; margin-bottom: 8px; display: flex; gap: 6px; border: 1px solid #dde4ea; box-shadow: none; opacity: 0.82; }
     .rate-item { display: flex; align-items: center; gap: 4px; flex: 1; min-width: 0; }
@@ -299,6 +346,24 @@
     .split-remaining-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
     .split-remaining-cell { background: #2d3436; border: 2px solid #465257; border-radius: 8px; padding: 8px 4px; color: #ffffff; cursor: default; user-select: none; font-size: 11px; font-weight: 900; text-align: center; }
     .split-remaining-cell b { display: block; color: #00a878; font-size: 14px; margin-top: 2px; }
+    .split-parts-box { width: min(760px, calc(100vw - 24px)); display: grid; grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr); grid-template-areas: "title title" "total total" "entry summary" "remaining summary" "list summary" "save cancel"; gap: 12px; align-items: stretch; }
+    .split-parts-box h3 { grid-area: title; margin: 0 !important; }
+    .split-parts-total-line { grid-area: total; margin: 0 !important; font-size: 12px; color: #666; }
+    .split-parts-entry { grid-area: entry; margin-bottom: 0; }
+    .split-parts-remaining { grid-area: remaining; margin-bottom: 0; }
+    .split-parts-remaining .split-remaining-cell { cursor: pointer; font-family: inherit; }
+    .split-parts-remaining .split-remaining-cell.active { border-color: #55efc4; background: #111820; }
+    .split-parts-list { grid-area: list; background: #f5f7f9; border: 2px solid #dfe6ec; border-radius: 12px; padding: 10px; min-height: 78px; text-align: left; }
+    .split-parts-empty { color: #7f8c8d; font-size: 12px; font-weight: 800; padding: 8px 2px; }
+    .split-parts-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 9px; background: #ffffff; border-left: 4px solid #00ADB5; color: #111820; font-size: 13px; font-weight: 900; }
+    .split-parts-item:last-child { margin-bottom: 0; }
+    .split-parts-remove { width: 28px; height: 28px; border: none; border-radius: 7px; background: #d63031; color: #fff; font-weight: 900; cursor: pointer; }
+    .split-parts-summary { grid-area: summary; margin-top: 0; display: flex; flex-direction: column; min-height: 0; }
+    .split-parts-save-btn { grid-area: save; margin-top: 0; }
+    .split-parts-cancel-btn { grid-area: cancel; width: 100%; margin-top: 0; border: none; border-radius: 12px; padding: 14px 10px; background: #d63031; color: #fff; font-size: 14px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; }
+    .split-parts-cancel-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
+    .split-parts-add-btn { width: 100%; margin-top: 8px; padding: 11px 10px; border: none; border-radius: 10px; background: #00ADB5; color: #111820; font-size: 13px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #08787d; text-transform: uppercase; }
+    .split-parts-add-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #08787d; }
 
     .rate-setup-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 15px; background: #f8f9fa; padding: 10px; border-radius: 12px; border: 1px solid #dee2e6; }
     .rate-setup-row label { font-weight: 900; font-size: 18px; }
@@ -349,6 +414,15 @@ body.silent-refresh .trash-item {
     #splitOverlay .split-box > button:last-child,
     #splitOverlay .split-save-btn,
     #splitOverlay .split-cancel-btn { grid-column: 1; grid-row: auto; }
+    .split-parts-box { grid-template-columns: 1fr; grid-template-areas: "title" "total" "entry" "remaining" "list" "summary" "save" "cancel"; width: min(430px, calc(100vw - 16px)); }
+    .split-parts-box h3,
+    .split-parts-total-line,
+    .split-parts-entry,
+    .split-parts-remaining,
+    .split-parts-list,
+    .split-parts-summary,
+    .split-parts-save-btn,
+    .split-parts-cancel-btn { grid-column: 1; grid-row: auto; }
 }
 
 @media (min-width: 901px) and (max-width: 1100px) {
@@ -368,7 +442,7 @@ body.silent-refresh .trash-item {
     body { padding: 6px; }
     .card, .history-container { padding: 14px; border-radius: 16px; }
     .login-box, .manual-tip-box, .shift-box, .app-prompt-box { width: min(100%, calc(100vw - 24px)); }
-    #splitOverlay .split-box { width: min(100%, calc(100vw - 12px)); }
+    #splitOverlay .split-box, .split-parts-box { width: min(100%, calc(100vw - 12px)); }
     #loginOverlay .login-box, .connection-card { flex: 1 1 100%; max-width: 360px; }
     .connection-row, .connection-actions { grid-template-columns: 1fr; }
     .rates-header { gap: 4px; padding: 5px; }
@@ -480,6 +554,11 @@ body.silent-refresh .trash-item {
             <div id="appVersionBadge" class="app-version-badge">Версия: проверяется...</div>
             <div id="connectionSummary" class="connection-summary"></div>
             <div class="connection-body" id="connectionBody">
+            <div class="connection-tabs">
+                <button type="button" class="connection-tab active" id="connectionNetworkTab" onclick="setConnectionTab('network')">ПОДКЛЮЧЕНИЕ</button>
+                <button type="button" class="connection-tab" id="connectionBackupTab" onclick="setConnectionTab('backup')">GITHUB BACKUP</button>
+            </div>
+            <div class="connection-panel" id="connectionNetworkPanel">
 
             <div class="connection-field">
                 <label for="networkMode">Режим</label>
@@ -531,13 +610,67 @@ body.silent-refresh .trash-item {
                 <button type="button" class="connection-btn" onclick="testNetworkConnection()">ПРОВЕРИТЬ</button>
             </div>
             <button type="button" class="connection-btn find" onclick="findNetworkHosts()">НАЙТИ ПК В СЕТИ</button>
-
-            <div id="networkStatus" class="connection-status">Загрузка настроек...</div>
-            <div id="networkFoundList" class="connection-found"></div>
-            </div>
             <button type="button" class="connection-btn find" id="checkUpdateBtn" onclick="checkAppUpdate()" style="display:none;">ПРОВЕРИТЬ ОБНОВЛЕНИЕ</button>
             <button type="button" class="connection-btn primary" id="installUpdateBtn" onclick="installAppUpdate()" style="display:none; width:100%; margin-top:8px;">ОБНОВИТЬ С ГЛАВНОГО ПК</button>
             <div id="updateStatus" class="update-status"></div>
+
+            <div id="networkStatus" class="connection-status">Загрузка настроек...</div>
+            <div id="networkFoundList" class="connection-found"></div>
+
+            </div>
+            <div class="connection-panel hidden" id="connectionBackupPanel">
+            <div class="backup-divider"></div>
+            <div class="backup-title">GitHub Backup данных</div>
+            <label class="backup-toggle-row">
+                <span>Включить GitHub Backup</span>
+                <input id="backupEnabled" type="checkbox" onchange="handleBackupEnabledToggle()">
+                <span class="backup-switch"></span>
+            </label>
+            <label class="backup-check backup-menu-item">
+                <input id="backupAuto" type="checkbox">
+                <span>Автобэкап после операций</span>
+            </label>
+            <div class="connection-field backup-menu-item">
+                <label class="backup-range-label" for="backupInterval">
+                    <span>Частота автобэкапа</span>
+                    <b><span id="backupIntervalValue">5</span> мин</b>
+                </label>
+                <input id="backupInterval" type="range" min="1" max="60" value="5" oninput="updateBackupIntervalLabel()" onchange="saveBackupIntervalPreference()">
+            </div>
+            <div class="connection-row backup-menu-item">
+                <div class="connection-field">
+                    <label for="backupOwner">Backup owner</label>
+                    <input id="backupOwner" type="text" placeholder="antionn45-glitch" autocomplete="off">
+                </div>
+                <div class="connection-field">
+                    <label for="backupRepo">Backup repo</label>
+                    <input id="backupRepo" type="text" placeholder="FX_App_Backup" autocomplete="off">
+                </div>
+            </div>
+            <div class="connection-field backup-menu-item">
+                <label for="backupBranch">Ветка</label>
+                <input id="backupBranch" type="text" value="main" placeholder="main" autocomplete="off">
+            </div>
+            <div class="connection-field backup-menu-item">
+                <label for="backupSlot">Папка бэкапа</label>
+                <input id="backupSlot" type="text" placeholder="например Zone_1_Main" autocomplete="off">
+            </div>
+            <div class="connection-field backup-menu-item">
+                <label for="backupToken">Token</label>
+                <input id="backupToken" type="password" placeholder="Оставьте пустым, если token уже сохранен" autocomplete="off">
+            </div>
+            <div class="connection-actions backup-menu-item">
+                <button type="button" class="connection-btn primary" onclick="saveGithubBackupSettings()">СОХРАНИТЬ БЭКАП</button>
+                <button type="button" class="connection-btn" onclick="runGithubBackupNow()">СДЕЛАТЬ БЭКАП</button>
+            </div>
+            <div class="backup-actions backup-menu-item">
+                <button type="button" class="connection-btn" onclick="checkGithubBackupInfo()">СРАВНИТЬ БЭКАП</button>
+                <button type="button" class="connection-btn restore" onclick="restoreGithubBackupFromCloud()">ВОССТАНОВИТЬ</button>
+                <button type="button" class="connection-btn danger full" onclick="clearGithubBackupRepositoryData()">ОЧИСТИТЬ ДАННЫЕ РЕПОЗИТОРИЯ</button>
+            </div>
+            <div id="backupStatus" class="update-status"></div>
+            </div>
+            </div>
         </div>
     </div>
 </div>
@@ -576,63 +709,53 @@ body.silent-refresh .trash-item {
     </div>
 </div>
 
-<div id="splitOverlay" onclick="closeSplitOverlay()">
-    <div class="login-box split-box" onclick="event.stopPropagation()">
-        <h3>Раздельная оплата 🌓</h3>
-        <p style="font-size: 12px; color: #666; margin-bottom: 15px;">Всего к оплате: <b id="splitTotalLabel">0</b> ֏</p>
+<div id="splitPartsOverlay" onclick="closeSplitPartsOverlay()">
+    <div class="login-box split-parts-box" onclick="event.stopPropagation()">
+        <h3>Оплата частями</h3>
+        <p class="split-parts-total-line">Всего к оплате: <b id="splitPartsTotalLabel">0</b> ֏</p>
 
-        <div class="split-pay-block pay-one">
-            <div class="split-pay-title">Оплата 1</div>
-            <input type="hidden" id="splitCurr1" value="AMD">
+        <div class="split-pay-block split-parts-entry">
+            <div class="split-pay-title">Добавить оплату</div>
             <div class="split-currency-row">
-                <button type="button" class="split-curr-btn" id="split1-RUB" onclick="setSplitCurrency(1, 'RUB')">₽ RUB</button>
-                <button type="button" class="split-curr-btn" id="split1-USD" onclick="setSplitCurrency(1, 'USD')">$ USD</button>
-                <button type="button" class="split-curr-btn" id="split1-EUR" onclick="setSplitCurrency(1, 'EUR')">€ EUR</button>
-                <button type="button" class="split-curr-btn active" id="split1-AMD" onclick="setSplitCurrency(1, 'AMD')">֏ AMD</button>
+                <button type="button" class="split-curr-btn" id="splitPartsCurr-RUB" onclick="setSplitPartsCurrency('RUB')">₽ RUB</button>
+                <button type="button" class="split-curr-btn" id="splitPartsCurr-USD" onclick="setSplitPartsCurrency('USD')">$ USD</button>
+                <button type="button" class="split-curr-btn" id="splitPartsCurr-EUR" onclick="setSplitPartsCurrency('EUR')">€ EUR</button>
+                <button type="button" class="split-curr-btn active" id="splitPartsCurr-AMD" onclick="setSplitPartsCurrency('AMD')">֏ AMD</button>
             </div>
-            <input type="number" id="splitVal1" class="split-pay-input" placeholder="0" oninput="calcSplit()" onfocus="this.select()">
+            <input type="number" id="splitPartsAmount" class="split-pay-input" placeholder="0" onkeydown="handleSplitPartsAmountKey(event)" onfocus="this.select()">
+            <button type="button" class="split-parts-add-btn" onclick="addSplitPartPayment()">Добавить</button>
         </div>
 
-        <div class="split-remaining">
+        <div class="split-remaining split-parts-remaining">
             <div class="split-remaining-title">
                 <span>Осталось доплатить</span>
-                <b id="splitRemainingAmd">0 ֏</b>
+                <b id="splitPartsRemainingAmd">0 ֏</b>
             </div>
             <div class="split-remaining-grid">
-                <div class="split-remaining-cell">RUB <b id="split-rem-RUB">0</b></div>
-                <div class="split-remaining-cell">USD <b id="split-rem-USD">0</b></div>
-                <div class="split-remaining-cell">EUR <b id="split-rem-EUR">0</b></div>
-                <div class="split-remaining-cell">AMD <b id="split-rem-AMD">0</b></div>
+                <button type="button" class="split-remaining-cell" id="splitPartsRemainBtn-RUB" onclick="fillSplitPartsRemaining('RUB')">RUB <b id="splitParts-rem-RUB">0</b></button>
+                <button type="button" class="split-remaining-cell" id="splitPartsRemainBtn-USD" onclick="fillSplitPartsRemaining('USD')">USD <b id="splitParts-rem-USD">0</b></button>
+                <button type="button" class="split-remaining-cell" id="splitPartsRemainBtn-EUR" onclick="fillSplitPartsRemaining('EUR')">EUR <b id="splitParts-rem-EUR">0</b></button>
+                <button type="button" class="split-remaining-cell" id="splitPartsRemainBtn-AMD" onclick="fillSplitPartsRemaining('AMD')">AMD <b id="splitParts-rem-AMD">0</b></button>
             </div>
         </div>
 
-        <div class="split-pay-block pay-two">
-            <div class="split-pay-title">Оплата 2</div>
-            <input type="hidden" id="splitCurr2" value="RUB">
-            <div class="split-currency-row">
-                <button type="button" class="split-curr-btn active" id="split2-RUB" onclick="setSplitCurrency(2, 'RUB')">₽ RUB</button>
-                <button type="button" class="split-curr-btn" id="split2-USD" onclick="setSplitCurrency(2, 'USD')">$ USD</button>
-                <button type="button" class="split-curr-btn" id="split2-EUR" onclick="setSplitCurrency(2, 'EUR')">€ EUR</button>
-                <button type="button" class="split-curr-btn" id="split2-AMD" onclick="setSplitCurrency(2, 'AMD')">֏ AMD</button>
-            </div>
-            <input type="number" id="splitVal2" class="split-pay-input" placeholder="0" oninput="calcSplit()" onfocus="this.select()">
-        </div>
+        <div id="splitPartsList" class="split-parts-list"></div>
 
-        <div class="split-summary">
-            <div class="split-summary-row"><span>Получено:</span><b id="splitReceivedAmd">0 ֏</b></div>
-            <div class="split-summary-row"><span>Разница:</span><b id="splitDiffAmd">0 ֏</b></div>
+        <div class="split-summary split-parts-summary">
+            <div class="split-summary-row"><span>Получено:</span><b id="splitPartsReceivedAmd">0 ֏</b></div>
+            <div class="split-summary-row"><span>Разница:</span><b id="splitPartsDiffAmd">0 ֏</b></div>
             <div class="split-change-grid">
-                <button type="button" class="split-change-cell" id="split-change-RUB" onclick="setSplitChangeCurrency('RUB')">RUB <b id="split-v-RUB">0</b></button>
-                <button type="button" class="split-change-cell active" id="split-change-USD" onclick="setSplitChangeCurrency('USD')">USD <b id="split-v-USD">0</b></button>
-                <button type="button" class="split-change-cell" id="split-change-EUR" onclick="setSplitChangeCurrency('EUR')">EUR <b id="split-v-EUR">0</b></button>
-                <button type="button" class="split-change-cell" id="split-change-AMD" onclick="setSplitChangeCurrency('AMD')">AMD <b id="split-v-AMD">0</b></button>
+                <button type="button" class="split-change-cell" id="splitParts-change-RUB" onclick="setSplitPartsChangeCurrency('RUB')">RUB <b id="splitParts-v-RUB">0</b></button>
+                <button type="button" class="split-change-cell active" id="splitParts-change-USD" onclick="setSplitPartsChangeCurrency('USD')">USD <b id="splitParts-v-USD">0</b></button>
+                <button type="button" class="split-change-cell" id="splitParts-change-EUR" onclick="setSplitPartsChangeCurrency('EUR')">EUR <b id="splitParts-v-EUR">0</b></button>
+                <button type="button" class="split-change-cell" id="splitParts-change-AMD" onclick="setSplitPartsChangeCurrency('AMD')">AMD <b id="splitParts-v-AMD">0</b></button>
             </div>
-            <div class="split-summary-row" style="margin-top:8px;"><span>Сдача выбрана:</span><b><span id="splitSelectedChange">0</span> <span id="splitSelectedChangeCurr">USD</span></b></div>
-            <button type="button" id="splitTipToggler" class="split-tip-toggle" onclick="toggleSplitTipMode()" disabled>Остаток на чай</button>
+            <div class="split-summary-row" style="margin-top:8px;"><span>Сдача выбрана:</span><b><span id="splitPartsSelectedChange">0</span> <span id="splitPartsSelectedChangeCurr">USD</span></b></div>
+            <button type="button" id="splitPartsTipToggler" class="split-tip-toggle" onclick="toggleSplitPartsTipMode()" disabled>Остаток на чай</button>
         </div>
 
-        <button type="button" onclick="saveSplitPayment()" class="save-btn split-save-btn">СОХРАНИТЬ РАЗДЕЛ</button>
-        <button type="button" onclick="closeSplitOverlay()" class="split-cancel-btn">ОТМЕНА</button>
+        <button type="button" onclick="saveSplitPartsPayment()" class="save-btn split-parts-save-btn">СОХРАНИТЬ ЧАСТЯМИ</button>
+        <button type="button" onclick="closeSplitPartsOverlay()" class="split-parts-cancel-btn">ОТМЕНА</button>
     </div>
 </div>
 
@@ -651,6 +774,49 @@ body.silent-refresh .trash-item {
     </div>
 </div>
 
+<div id="userSettingsOverlay" onclick="closeUserSettings()">
+    <div class="user-settings-box" onclick="event.stopPropagation()">
+        <h3>Персональные настройки</h3>
+        <div class="user-settings-tabs">
+            <button type="button" class="user-settings-tab active" id="userSettingsTabMain" onclick="setUserSettingsPage('main')">Основные</button>
+            <button type="button" class="user-settings-tab" id="userSettingsTabPos" onclick="setUserSettingsPage('pos')">Область POS</button>
+        </div>
+        <div class="user-settings-page active" id="userSettingsPageMain">
+            <label class="user-settings-row">
+                <input type="checkbox" id="settingF1Toggle">
+                <span>F1 сворачивает и разворачивает окно<small>Можно выключить, если мешает во время работы.</small></span>
+            </label>
+            <label class="user-settings-row">
+                <input type="checkbox" id="settingF3Import">
+                <span>F3 подставляет сумму из POS<small>Если выключено, автораспознавание суммы не запускается.</small></span>
+            </label>
+            <label class="user-settings-row">
+                <input type="checkbox" id="settingMinimizeAfterSave">
+                <span>Сворачивать после сохранения чека<small>Работает для обычного и раздельного чека.</small></span>
+            </label>
+        </div>
+        <div class="user-settings-page" id="userSettingsPagePos">
+            <div class="user-settings-section-title">Область скрина POS</div>
+            <div class="pos-area-grid">
+                <div class="pos-area-field"><label for="posAreaX">x</label><input type="number" id="posAreaX" placeholder="0"></div>
+                <div class="pos-area-field"><label for="posAreaY">y</label><input type="number" id="posAreaY" placeholder="0"></div>
+                <div class="pos-area-field"><label for="posAreaWidth">width</label><input type="number" id="posAreaWidth" placeholder="0"></div>
+                <div class="pos-area-field"><label for="posAreaHeight">height</label><input type="number" id="posAreaHeight" placeholder="0"></div>
+            </div>
+            <div class="pos-area-actions">
+                <button type="button" onclick="selectPosOcrArea()">Выбрать область</button>
+                <button type="button" onclick="testPosOcrArea()">Тест распознавания</button>
+                <button type="button" onclick="savePosOcrArea()">Сохранить</button>
+            </div>
+            <div id="posAreaStatus" class="pos-area-status"></div>
+        </div>
+        <div class="user-settings-actions">
+            <button type="button" class="user-settings-save" onclick="saveUserSettings()">СОХРАНИТЬ</button>
+            <button type="button" class="user-settings-cancel" onclick="closeUserSettings()">ОТМЕНА</button>
+        </div>
+    </div>
+</div>
+
 <div id="shiftOverlay">
     <div class="shift-box">
         <button class="shift-close-x" onclick="closeShiftOverlay()">×</button>
@@ -666,6 +832,7 @@ body.silent-refresh .trash-item {
     <div class="calc-container">
         <div class="user-top-line">
             <div class="user-badge">👤 Кассир: <span id="currentUserName">...</span></div>
+            <button type="button" class="settings-btn" onclick="openUserSettings()">НАСТРОЙКИ</button>
             <button type="button" class="logout-btn" onclick="logoutToLogin()">ВЫХОД</button>
             <button type="button" class="emergency-close-btn" id="emergencyCloseBtn" title="Экстренно закрыть программу на обоих ПК" onclick="emergencyCloseApp()">☠</button>
         </div>
@@ -743,7 +910,7 @@ body.silent-refresh .trash-item {
 
             <div class="change-with-actions">
                 <div class="change-side-actions">
-                    <button type="button" class="change-side-action split-side" onclick="openSplit()" title="Разделить оплату">◐</button>
+                    <button type="button" class="change-side-action split-side" onclick="openSplitParts()" title="Оплата частями">+</button>
                     <button type="button" class="change-side-action tip-side" onclick="openManualTip()" title="Добавить TIP">TIP</button>
                 </div>
                 <div class="change-container">
@@ -889,7 +1056,233 @@ function fillExactPayment() {
     focusMoneyInput('given', false);
 }
 
+function normalizeUserSettings(value = {}) {
+    return {
+        enableF1Toggle: value.enableF1Toggle === undefined ? DEFAULT_USER_SETTINGS.enableF1Toggle : Boolean(value.enableF1Toggle),
+        enableF3Import: value.enableF3Import === undefined ? DEFAULT_USER_SETTINGS.enableF3Import : Boolean(value.enableF3Import),
+        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave)
+    };
+}
+
+function currentUserSettingsPayload(settings = currentUserSettings) {
+    return {
+        id: currentUserId,
+        name: currentOperator,
+        role: currentRole,
+        settings: normalizeUserSettings(settings)
+    };
+}
+
+async function loadCurrentUserSettings() {
+    if (!currentOperator && !currentUserId) {
+        currentUserSettings = normalizeUserSettings({});
+        return currentUserSettings;
+    }
+    try {
+        const result = await ipcRenderer.invoke('get-user-settings', {
+            id: currentUserId,
+            name: currentOperator,
+            role: currentRole
+        });
+        currentUserSettings = normalizeUserSettings(result?.settings || {});
+    } catch {
+        currentUserSettings = normalizeUserSettings({});
+    }
+    return currentUserSettings;
+}
+
+function applyUserSettingsToForm() {
+    const settings = normalizeUserSettings(currentUserSettings);
+    const f1 = document.getElementById('settingF1Toggle');
+    const f3 = document.getElementById('settingF3Import');
+    const minimize = document.getElementById('settingMinimizeAfterSave');
+    if (f1) f1.checked = settings.enableF1Toggle;
+    if (f3) f3.checked = settings.enableF3Import;
+    if (minimize) minimize.checked = settings.minimizeAfterSave;
+}
+
+function collectUserSettingsFromForm() {
+    return normalizeUserSettings({
+        enableF1Toggle: document.getElementById('settingF1Toggle')?.checked,
+        enableF3Import: document.getElementById('settingF3Import')?.checked,
+        minimizeAfterSave: document.getElementById('settingMinimizeAfterSave')?.checked
+    });
+}
+
+function setUserSettingsPage(page = 'main') {
+    const normalized = page === 'pos' ? 'pos' : 'main';
+    document.getElementById('userSettingsTabMain')?.classList.toggle('active', normalized === 'main');
+    document.getElementById('userSettingsTabPos')?.classList.toggle('active', normalized === 'pos');
+    document.getElementById('userSettingsPageMain')?.classList.toggle('active', normalized === 'main');
+    document.getElementById('userSettingsPagePos')?.classList.toggle('active', normalized === 'pos');
+    if (normalized === 'pos') loadPosOcrSettings();
+}
+
+function openUserSettings() {
+    applyUserSettingsToForm();
+    const overlay = document.getElementById('userSettingsOverlay');
+    if (overlay) overlay.style.display = 'flex';
+    setUserSettingsPage('main');
+}
+
+function closeUserSettings() {
+    const overlay = document.getElementById('userSettingsOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function saveUserSettings() {
+    const settings = collectUserSettingsFromForm();
+    try {
+        const result = await ipcRenderer.invoke('save-user-settings', currentUserSettingsPayload(settings));
+        if (!result?.ok) {
+            await showAppMessage({ title: 'Настройки', message: result?.error || 'Не удалось сохранить настройки', okText: 'OK' });
+            return;
+        }
+        currentUserSettings = normalizeUserSettings(result.settings || settings);
+        ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
+        closeUserSettings();
+    } catch (err) {
+        await showAppMessage({ title: 'Настройки', message: 'Ошибка сохранения: ' + (err.message || err), okText: 'OK' });
+    }
+}
+
+function normalizePosOcrArea(area = {}) {
+    const x = Math.round(Number(area.x));
+    const y = Math.round(Number(area.y));
+    const width = Math.round(Number(area.width));
+    const height = Math.round(Number(area.height));
+    if (![x, y, width, height].every(Number.isFinite) || width < 2 || height < 2) return null;
+    return { x, y, width, height };
+}
+
+function setPosOcrStatus(message = '', tone = '') {
+    const status = document.getElementById('posAreaStatus');
+    if (!status) return;
+    status.className = `pos-area-status ${tone === 'bad' ? 'bad' : ''}`.trim();
+    status.innerText = message;
+    status.style.display = message ? 'block' : 'none';
+}
+
+function applyPosOcrArea(area) {
+    const normalized = normalizePosOcrArea(area);
+    [['posAreaX', 'x'], ['posAreaY', 'y'], ['posAreaWidth', 'width'], ['posAreaHeight', 'height']].forEach(([id, key]) => {
+        const input = document.getElementById(id);
+        if (input) input.value = normalized ? String(normalized[key]) : '';
+    });
+    return normalized;
+}
+
+function collectPosOcrArea() {
+    return normalizePosOcrArea({
+        x: document.getElementById('posAreaX')?.value,
+        y: document.getElementById('posAreaY')?.value,
+        width: document.getElementById('posAreaWidth')?.value,
+        height: document.getElementById('posAreaHeight')?.value
+    });
+}
+
+async function loadPosOcrSettings() {
+    setPosOcrStatus('Загружаю область POS...');
+    try {
+        const result = await ipcRenderer.invoke('get-pos-ocr-config');
+        const area = applyPosOcrArea(result?.area);
+        if (area) {
+            setPosOcrStatus(`Область POS: x ${area.x}, y ${area.y}, width ${area.width}, height ${area.height}`);
+        } else if (!result?.exists) {
+            setPosOcrStatus('config.json пока нет. Нажмите "Выбрать область" и выделите сумму в POS.', 'bad');
+        } else {
+            setPosOcrStatus('Область POS не выбрана. F3 будет просить выбрать область.', 'bad');
+        }
+    } catch (err) {
+        applyPosOcrArea(null);
+        setPosOcrStatus('Не удалось загрузить область POS: ' + (err.message || err), 'bad');
+    }
+}
+
+async function savePosOcrArea() {
+    const area = collectPosOcrArea();
+    if (!area) {
+        setPosOcrStatus('Укажите x, y, width и height. Width/height должны быть больше 1.', 'bad');
+        return null;
+    }
+    try {
+        const result = await ipcRenderer.invoke('save-pos-ocr-area', { area });
+        if (!result?.ok) {
+            setPosOcrStatus(result?.error || 'Не удалось сохранить область POS', 'bad');
+            return null;
+        }
+        const saved = applyPosOcrArea(result.area);
+        setPosOcrStatus(`Сохранено: x ${saved.x}, y ${saved.y}, width ${saved.width}, height ${saved.height}`);
+        return saved;
+    } catch (err) {
+        setPosOcrStatus('Ошибка сохранения области POS: ' + (err.message || err), 'bad');
+        return null;
+    }
+}
+
+async function selectPosOcrArea() {
+    setPosOcrStatus('Выделите мышкой прямоугольник с суммой POS. Esc отменяет выбор.');
+    try {
+        const result = await ipcRenderer.invoke('select-pos-ocr-area');
+        if (!result?.ok) {
+            setPosOcrStatus(result?.error || 'Выбор области отменен', 'bad');
+            return;
+        }
+        const area = applyPosOcrArea(result.area);
+        if (area) {
+            setPosOcrStatus(`Область выбрана и сохранена: x ${area.x}, y ${area.y}, width ${area.width}, height ${area.height}`);
+        }
+    } catch (err) {
+        setPosOcrStatus('Ошибка выбора области POS: ' + (err.message || err), 'bad');
+    }
+}
+
+async function testPosOcrArea() {
+    const area = await savePosOcrArea();
+    if (!area) return;
+    setPosOcrStatus('Проверяю OCR по выбранной области...');
+    try {
+        const result = await ipcRenderer.invoke('test-pos-ocr-area');
+        if (!result?.ok) {
+            setPosOcrStatus(result?.error || 'OCR ничего не распознал', 'bad');
+            return;
+        }
+        setPosOcrStatus(`OCR сумма: ${Number(result.amount).toLocaleString()} AMD\nraw: ${result.raw || '-'}`);
+    } catch (err) {
+        setPosOcrStatus('Ошибка теста OCR: ' + (err.message || err), 'bad');
+    }
+}
+
+async function takeAmountFromPos() {
+    if (!currentUserSettings.enableF3Import) {
+        await showAppMessage({ title: 'POS OCR', message: 'Функция F3 / POS выключена в персональных настройках.', okText: 'OK' });
+        return;
+    }
+    try {
+        const result = await ipcRenderer.invoke('import-pos-amount');
+        if (!result?.ok) {
+            await showAppMessage({ title: 'POS OCR', message: result?.error || 'OCR ничего не распознал', okText: 'OK' });
+            focusMoneyInput('priceAMD', false);
+            return;
+        }
+        const amount = Math.trunc(Number(result.amount) || 0);
+        if (!(amount > 0)) {
+            await showAppMessage({ title: 'POS OCR', message: 'OCR вернул пустую сумму.', okText: 'OK' });
+            focusMoneyInput('priceAMD', false);
+            return;
+        }
+        const priceInput = document.getElementById('priceAMD');
+        if (priceInput) priceInput.value = String(amount);
+        calculate();
+        focusMoneyInput('given', false);
+    } catch (err) {
+        await showAppMessage({ title: 'POS OCR', message: 'Ошибка OCR: ' + (err.message || err), okText: 'OK' });
+        focusMoneyInput('priceAMD', false);
+    }
+}
+
 function minimizeAfterReceiptSave() {
+    if (!currentUserSettings.minimizeAfterSave) return;
     setTimeout(() => {
         ipcRenderer.invoke('minimize-app-window').catch(() => {});
     }, 120);
@@ -1501,13 +1894,19 @@ try {
 const ipcRenderer = electronApi && electronApi.ipcRenderer
     ? electronApi.ipcRenderer
     : createBrowserIpcFallback();
+const DEFAULT_USER_SETTINGS = { enableF1Toggle: true, enableF3Import: true, minimizeAfterSave: true };
 let currentOperator = "";
 let currentRole = "";
 let currentUserId = "";
+let currentUserSettings = { ...DEFAULT_USER_SETTINGS };
 let isAlwaysOnTopMode = false;
 let changeCurrency = "USD";
 let splitChangeCurrency = "USD";
 let isSplitTipMode = false;
+let splitPartsCurrency = "AMD";
+let splitPartsChangeCurrency = "USD";
+let splitPartsPayments = [];
+let isSplitPartsTipMode = false;
 let activeTab = "bills";
 let isTipMode = false;
 let historyCurrencyFilter = "ALL";
@@ -1538,6 +1937,8 @@ const UPDATE_RESUME_SESSION_KEY = 'fx_update_resume_session_v1';
 const UPDATE_DISMISSED_KEY = 'fx_update_dismissed_v1';
 const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
 const DEFAULT_NETWORK_CONFIG = { mode: 'local', host: '', port: 9260, updateSource: 'lan', githubOwner: '', githubRepo: '', githubBranch: 'main' };
+const DEFAULT_BACKUP_CONFIG = { enabled: false, owner: 'antionn45-glitch', repo: 'FX_App_Backup', branch: 'main', slot: '', backupPath: '', autoBackup: true, autoIntervalMinutes: 5, hasToken: false };
+const CONNECTION_TAB_STORAGE_KEY = 'fxConnectionActiveTab';
 let networkCandidates = [];
 let localAppManifest = null;
 let authStoreCache = { admins: {}, cashiers: {} };
@@ -1857,6 +2258,35 @@ function collectNetworkConfig() {
     });
 }
 
+function normalizeBackupConfig(config = {}) {
+    const autoIntervalRaw = Number(config.autoIntervalMinutes ?? DEFAULT_BACKUP_CONFIG.autoIntervalMinutes);
+    const autoIntervalMinutes = Math.max(1, Math.min(60, Math.round(Number.isFinite(autoIntervalRaw) ? autoIntervalRaw : DEFAULT_BACKUP_CONFIG.autoIntervalMinutes)));
+    return {
+        enabled: Boolean(config.enabled),
+        owner: String(config.owner ?? DEFAULT_BACKUP_CONFIG.owner).trim(),
+        repo: String(config.repo ?? DEFAULT_BACKUP_CONFIG.repo).trim(),
+        branch: String(config.branch ?? DEFAULT_BACKUP_CONFIG.branch).trim() || DEFAULT_BACKUP_CONFIG.branch,
+        slot: String(config.slot ?? DEFAULT_BACKUP_CONFIG.slot ?? '').trim(),
+        backupPath: String(config.backupPath || '').trim(),
+        autoBackup: config.autoBackup === undefined ? DEFAULT_BACKUP_CONFIG.autoBackup : Boolean(config.autoBackup),
+        autoIntervalMinutes,
+        hasToken: Boolean(config.hasToken)
+    };
+}
+
+function collectBackupConfig() {
+    return {
+        enabled: Boolean(document.getElementById('backupEnabled')?.checked),
+        autoBackup: Boolean(document.getElementById('backupAuto')?.checked),
+        owner: document.getElementById('backupOwner')?.value,
+        repo: document.getElementById('backupRepo')?.value,
+        branch: document.getElementById('backupBranch')?.value,
+        slot: document.getElementById('backupSlot')?.value,
+        autoIntervalMinutes: Number(document.getElementById('backupInterval')?.value || DEFAULT_BACKUP_CONFIG.autoIntervalMinutes),
+        token: document.getElementById('backupToken')?.value
+    };
+}
+
 function setNetworkStatus(message, tone = '') {
     const status = document.getElementById('networkStatus');
     if (!status) return;
@@ -1929,12 +2359,269 @@ function toggleConnectionPanel() {
     setConnectionPanelCollapsed(!card?.classList.contains('collapsed'));
 }
 
+function setConnectionTab(tab = 'network', remember = true) {
+    const normalized = tab === 'backup' ? 'backup' : 'network';
+    const networkPanel = document.getElementById('connectionNetworkPanel');
+    const backupPanel = document.getElementById('connectionBackupPanel');
+    const networkTab = document.getElementById('connectionNetworkTab');
+    const backupTab = document.getElementById('connectionBackupTab');
+    if (networkPanel) networkPanel.classList.toggle('hidden', normalized !== 'network');
+    if (backupPanel) backupPanel.classList.toggle('hidden', normalized !== 'backup');
+    if (networkTab) networkTab.classList.toggle('active', normalized === 'network');
+    if (backupTab) backupTab.classList.toggle('active', normalized === 'backup');
+    if (remember) localStorage.setItem(CONNECTION_TAB_STORAGE_KEY, normalized);
+}
+
 function setUpdateStatus(message = '', tone = '') {
     const status = document.getElementById('updateStatus');
     if (!status) return;
     status.className = `update-status ${tone}`.trim();
     status.innerText = message;
     status.style.display = message ? 'block' : 'none';
+}
+
+function setBackupStatus(message = '', tone = '') {
+    const status = document.getElementById('backupStatus');
+    if (!status) return;
+    status.className = `update-status ${tone}`.trim();
+    status.innerText = message;
+    status.style.display = message ? 'block' : 'none';
+}
+
+function updateBackupMenuVisibility(enabled) {
+    const panel = document.getElementById('connectionBackupPanel');
+    if (panel) panel.classList.toggle('backup-disabled', !Boolean(enabled));
+}
+
+function updateBackupIntervalLabel() {
+    const input = document.getElementById('backupInterval');
+    const label = document.getElementById('backupIntervalValue');
+    const value = Math.max(1, Math.min(60, Math.round(Number(input?.value) || DEFAULT_BACKUP_CONFIG.autoIntervalMinutes)));
+    if (input && String(input.value) !== String(value)) input.value = String(value);
+    if (label) label.innerText = String(value);
+}
+
+async function handleBackupEnabledToggle() {
+    const enabled = Boolean(document.getElementById('backupEnabled')?.checked);
+    updateBackupMenuVisibility(enabled);
+    try {
+        const result = await ipcRenderer.invoke('save-github-backup-config', collectBackupConfig());
+        applyBackupConfigToForm(result?.config || DEFAULT_BACKUP_CONFIG);
+        if (!result?.ok) {
+            setBackupStatus(result?.error || 'Не удалось сохранить переключатель GitHub Backup', 'bad');
+            return;
+        }
+        const info = formatBackupStatus(result);
+        setBackupStatus(info.text, info.tone);
+    } catch (err) {
+        setBackupStatus('Ошибка сохранения переключателя GitHub Backup: ' + (err.message || err), 'bad');
+    }
+}
+
+async function saveBackupIntervalPreference() {
+    updateBackupIntervalLabel();
+    const interval = Number(document.getElementById('backupInterval')?.value || DEFAULT_BACKUP_CONFIG.autoIntervalMinutes);
+    try {
+        const result = await ipcRenderer.invoke('save-github-backup-config', collectBackupConfig());
+        if (!result?.ok) {
+            setBackupStatus(result?.error || 'Не удалось сохранить частоту автобэкапа', 'bad');
+            return;
+        }
+        applyBackupConfigToForm(result?.config || DEFAULT_BACKUP_CONFIG);
+        setBackupStatus(`Частота автобэкапа сохранена: ${Math.max(1, Math.min(60, Math.round(interval)))} мин`, 'ok');
+    } catch (err) {
+        setBackupStatus('Ошибка сохранения частоты автобэкапа: ' + (err.message || err), 'bad');
+    }
+}
+
+function applyBackupConfigToForm(config = {}) {
+    const normalized = normalizeBackupConfig(config);
+    const enabled = document.getElementById('backupEnabled');
+    const auto = document.getElementById('backupAuto');
+    const interval = document.getElementById('backupInterval');
+    const owner = document.getElementById('backupOwner');
+    const repo = document.getElementById('backupRepo');
+    const branch = document.getElementById('backupBranch');
+    const slot = document.getElementById('backupSlot');
+    const token = document.getElementById('backupToken');
+    if (enabled) enabled.checked = normalized.enabled;
+    if (auto) auto.checked = normalized.autoBackup;
+    if (interval) interval.value = String(normalized.autoIntervalMinutes);
+    if (owner) owner.value = normalized.owner;
+    if (repo) repo.value = normalized.repo;
+    if (branch) branch.value = normalized.branch;
+    if (slot) {
+        slot.value = normalized.slot;
+        slot.placeholder = normalized.slot || 'авто: имя этого ПК';
+    }
+    if (token) token.value = '';
+    if (token) token.placeholder = normalized.hasToken ? 'Token сохранен. Оставьте пустым, чтобы не менять' : 'Вставьте token от приватного репозитория';
+    updateBackupIntervalLabel();
+    updateBackupMenuVisibility(normalized.enabled);
+}
+
+function formatBackupStatus(result = {}) {
+    const config = normalizeBackupConfig(result.config || DEFAULT_BACKUP_CONFIG);
+    const status = result.status || {};
+    if (!config.enabled) return { text: 'GitHub Backup выключен', tone: 'warn' };
+    if (!config.hasToken) return { text: 'Token не сохранен. Вставьте token и нажмите СОХРАНИТЬ БЭКАП.', tone: 'bad' };
+    if (status.message) return { text: status.message, tone: status.state === 'error' ? 'bad' : status.state === 'ok' ? 'ok' : 'warn' };
+    return { text: `Бэкап: ${maskSecret(config.owner)} / ${maskSecret(config.repo)} / ${config.branch} | папка: ${config.slot || 'авто'}`, tone: 'ok' };
+}
+
+async function loadGithubBackupSettings() {
+    try {
+        const result = await ipcRenderer.invoke('get-github-backup-config');
+        applyBackupConfigToForm(result?.config || DEFAULT_BACKUP_CONFIG);
+        const info = formatBackupStatus(result);
+        setBackupStatus(info.text, info.tone);
+    } catch (err) {
+        applyBackupConfigToForm(DEFAULT_BACKUP_CONFIG);
+        setBackupStatus('Настройки GitHub Backup пока не загружены: ' + (err.message || err), 'bad');
+    }
+}
+
+async function saveGithubBackupSettings() {
+    try {
+        const result = await ipcRenderer.invoke('save-github-backup-config', collectBackupConfig());
+        applyBackupConfigToForm(result?.config || DEFAULT_BACKUP_CONFIG);
+        if (!result?.ok) {
+            setBackupStatus(result?.error || 'Не удалось сохранить настройки бэкапа', 'bad');
+            return;
+        }
+        const info = formatBackupStatus(result);
+        setBackupStatus('Сохранено. ' + info.text, info.tone);
+    } catch (err) {
+        setBackupStatus('Ошибка сохранения бэкапа: ' + (err.message || err), 'bad');
+    }
+}
+
+async function runGithubBackupNow() {
+    setBackupStatus('Отправляю бэкап в GitHub...', 'warn');
+    try {
+        const result = await ipcRenderer.invoke('run-github-backup', { reason: 'manual-ui' });
+        if (!result?.ok) {
+            setBackupStatus(result?.error || result?.message || 'Бэкап не выполнен', result?.skipped ? 'warn' : 'bad');
+            return;
+        }
+        setBackupStatus(result?.status?.message || result?.message || 'Бэкап сохранен в GitHub', 'ok');
+    } catch (err) {
+        setBackupStatus('Ошибка бэкапа: ' + (err.message || err), 'bad');
+    }
+}
+
+async function checkGithubBackupInfo() {
+    setBackupStatus('Проверяю бэкап в GitHub...', 'warn');
+    try {
+        const result = await ipcRenderer.invoke('check-github-backup');
+        if (!result?.ok) {
+            setBackupStatus(result?.error || 'Не удалось проверить бэкап', 'bad');
+            return;
+        }
+        setBackupStatus(result.message || 'Бэкап проверен', result.exists === false ? 'warn' : 'ok');
+        await showAppMessage({
+            title: 'GitHub Backup',
+            message: result.message || 'Бэкап проверен',
+            okText: 'OK'
+        });
+    } catch (err) {
+        setBackupStatus('Ошибка проверки бэкапа: ' + (err.message || err), 'bad');
+    }
+}
+
+async function restoreGithubBackupFromCloud() {
+    setBackupStatus('Проверяю данные перед восстановлением...', 'warn');
+    try {
+        const check = await ipcRenderer.invoke('check-github-backup');
+        if (!check?.ok) {
+            setBackupStatus(check?.error || 'Не удалось проверить бэкап', 'bad');
+            return;
+        }
+        if (check.exists === false) {
+            setBackupStatus(check.message || 'Бэкап в GitHub пока не найден', 'warn');
+            return;
+        }
+
+        const firstOk = await showAppConfirm({
+            title: 'Восстановить данные?',
+            message: `${check.message || ''}\n\nВосстановление заменит локальные чеки, корзину, TIP, смены и аккаунты данными из GitHub.`,
+            okText: 'ВОССТАНОВИТЬ'
+        });
+        if (!firstOk) {
+            setBackupStatus('Восстановление отменено', 'warn');
+            return;
+        }
+
+        let result = await ipcRenderer.invoke('restore-github-backup', { force: false });
+        if (result?.needsConfirm) {
+            const forceOk = await showAppConfirm({
+                title: 'Локальные данные новее',
+                message: `${result.message}\n\nВсе равно заменить данные на этом ПК бэкапом из GitHub?`,
+                okText: 'ЗАМЕНИТЬ'
+            });
+            if (!forceOk) {
+                setBackupStatus('Восстановление отменено: локальные данные оставлены', 'warn');
+                return;
+            }
+            result = await ipcRenderer.invoke('restore-github-backup', { force: true });
+        }
+
+        if (!result?.ok) {
+            setBackupStatus(result?.error || result?.message || 'Восстановление не выполнено', 'bad');
+            return;
+        }
+        setBackupStatus(result.message || 'Данные восстановлены из GitHub', 'ok');
+        await showAppMessage({
+            title: 'Готово',
+            message: `${result.message || 'Данные восстановлены из GitHub'}\n\nПриложение перезапустится, чтобы все списки перечитались заново.`,
+            okText: 'OK'
+        });
+        await ipcRenderer.invoke('restart-app');
+    } catch (err) {
+        setBackupStatus('Ошибка восстановления: ' + (err.message || err), 'bad');
+    }
+}
+
+async function clearGithubBackupRepositoryData() {
+    const password = await showAppPrompt({
+        title: 'Очистка данных репозитория',
+        message: 'Введите пароль для очистки owner, repo и token. Папка бэкапа не трогается.',
+        type: 'password',
+        inputMode: 'numeric',
+        okText: 'ОЧИСТИТЬ'
+    });
+    if (password === null) return;
+    if (String(password).trim() !== '1056') {
+        setBackupStatus('Неверный пароль. Данные репозитория не очищены.', 'bad');
+        await showAppMessage({
+            title: 'Пароль',
+            message: 'Неверный пароль.',
+            okText: 'OK'
+        });
+        return;
+    }
+    const ok = await showAppConfirm({
+        title: 'Очистить данные репозитория?',
+        message: 'Будут очищены только заполненные данные подключения: owner, repo и token. Папка бэкапа и файлы в GitHub останутся на месте.',
+        okText: 'ОЧИСТИТЬ'
+    });
+    if (!ok) {
+        setBackupStatus('Очистка данных репозитория отменена', 'warn');
+        return;
+    }
+
+    setBackupStatus('Очищаю данные репозитория...', 'warn');
+    try {
+        const result = await ipcRenderer.invoke('clear-github-backup-repository-fields');
+        applyBackupConfigToForm(result?.config || DEFAULT_BACKUP_CONFIG);
+        if (!result?.ok) {
+            setBackupStatus(result?.error || 'Не удалось очистить данные репозитория', 'bad');
+            return;
+        }
+        setBackupStatus(result?.status?.message || 'Данные репозитория очищены. Папка бэкапа оставлена.', 'ok');
+    } catch (err) {
+        setBackupStatus('Ошибка очистки данных репозитория: ' + (err.message || err), 'bad');
+    }
 }
 
 function shortFingerprint(manifest) {
@@ -2044,12 +2731,14 @@ async function loadNetworkSettings() {
         updateUpdateControls(config, false);
         updateConnectionIndicatorFromResult(result, true);
         await loadLocalAppManifest();
+        setConnectionTab(localStorage.getItem(CONNECTION_TAB_STORAGE_KEY) || 'network', false);
         setConnectionPanelCollapsed(localStorage.getItem(CONNECTION_COLLAPSED_STORAGE_KEY) === '1', false);
     } catch (err) {
         applyNetworkConfigToForm(DEFAULT_NETWORK_CONFIG);
         setNetworkStatus('Настройки подключения пока не загружены', 'bad');
         setConnectionIndicator(false, true);
         await loadLocalAppManifest();
+        setConnectionTab('network', false);
         setConnectionPanelCollapsed(false, false);
     }
 }
@@ -2267,10 +2956,11 @@ async function restoreUpdateSessionIfNeeded() {
     sessionStorage.setItem('fx_operator', currentOperator);
     sessionStorage.setItem('fx_role', currentRole);
     sessionStorage.setItem('fx_user_id', currentUserId);
-    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator });
+    await loadCurrentUserSettings();
+    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
 
     setOperator(currentOperator);
-    ['loginOverlay', 'ratesOverlay', 'splitOverlay', 'shiftOverlay', 'manualTipOverlay', 'appPromptOverlay'].forEach(id => {
+    ['loginOverlay', 'ratesOverlay', 'splitOverlay', 'splitPartsOverlay', 'shiftOverlay', 'manualTipOverlay', 'userSettingsOverlay', 'appPromptOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -2817,7 +3507,8 @@ async function completeLogin(account) {
     sessionStorage.setItem('fx_operator', currentOperator);
     sessionStorage.setItem('fx_role', currentRole);
     sessionStorage.setItem('fx_user_id', currentUserId);
-    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator });
+    await loadCurrentUserSettings();
+    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
 
     setOperator(currentOperator);
     document.getElementById('loginOverlay').style.display = 'none';
@@ -2917,6 +3608,7 @@ function isMainWorkspaceOpen() {
     return !isOverlayOpen('loginOverlay')
         && !isOverlayOpen('ratesOverlay')
         && !isOverlayOpen('splitOverlay')
+        && !isOverlayOpen('splitPartsOverlay')
         && !isOverlayOpen('shiftOverlay')
         && !isOverlayOpen('manualTipOverlay')
         && !isOverlayOpen('appPromptOverlay');
@@ -3039,6 +3731,7 @@ window.onload = async () => {
     moveTotalPanelToSide();
     await syncAlwaysOnTopState();
     await loadNetworkSettings();
+    await loadGithubBackupSettings();
     await refreshAuthStore();
     await migrateLegacyAuthStoreIfNeeded();
     await renderLoginScreen();
@@ -3093,17 +3786,18 @@ async function logoutToLogin() {
     currentOperator = "";
     currentRole = "";
     currentUserId = "";
+    currentUserSettings = normalizeUserSettings({});
     sessionStorage.removeItem('fx_operator');
     sessionStorage.removeItem('fx_role');
     sessionStorage.removeItem('fx_user_id');
-    ipcRenderer.send('set-current-session-role', { role: '', user: '' });
+    ipcRenderer.send('set-current-session-role', { role: '', user: '', settings: currentUserSettings });
     if (typeof appPromptResolver === 'function') {
         appPromptResolver(null);
         appPromptResolver = null;
         appPromptMode = 'prompt';
     }
 
-    ['ratesOverlay', 'splitOverlay', 'shiftOverlay', 'manualTipOverlay', 'appPromptOverlay'].forEach(id => {
+    ['ratesOverlay', 'splitOverlay', 'splitPartsOverlay', 'shiftOverlay', 'manualTipOverlay', 'userSettingsOverlay', 'appPromptOverlay'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });
@@ -3115,6 +3809,8 @@ async function logoutToLogin() {
     openedShiftId = null;
     isTipMode = false;
     isSplitTipMode = false;
+    isSplitPartsTipMode = false;
+    splitPartsPayments = [];
     document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
     const historySearch = document.getElementById('historySearch');
     if (historySearch) historySearch.value = '';
@@ -3480,7 +4176,314 @@ async function saveSplitPayment() {
         ipcRenderer.send('save-tip', tipEntry);
     }
 
-    document.getElementById('splitOverlay').style.display = 'none';
+    const legacySplit = document.getElementById('splitOverlay');
+    if (legacySplit) legacySplit.style.display = 'none';
+    activeTab = 'bills';
+    document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
+    prepareNewPaymentInput();
+    await renderHistory();
+    updateTotals();
+    minimizeAfterReceiptSave();
+}
+
+function closeSplitPartsOverlay() {
+    const overlay = document.getElementById('splitPartsOverlay');
+    if (overlay) overlay.style.display = 'none';
+    recoverAmountInput(false);
+}
+
+async function openSplitParts() {
+    const amd = parseFloat(document.getElementById('priceAMD').value);
+    if (!amd) {
+        await showAppMessage({ title: 'Оплата частями', message: 'Сначала введите сумму счета', okText: 'OK' });
+        focusMoneyInput('priceAMD');
+        return;
+    }
+    const oldSplitOverlay = document.getElementById('splitOverlay');
+    if (oldSplitOverlay) oldSplitOverlay.style.display = 'none';
+    document.getElementById('splitPartsTotalLabel').innerText = amd.toLocaleString();
+    document.getElementById('splitPartsOverlay').style.display = 'flex';
+    splitPartsPayments = [];
+    splitPartsCurrency = 'AMD';
+    splitPartsChangeCurrency = 'USD';
+    isSplitPartsTipMode = false;
+    document.getElementById('splitPartsAmount').value = '';
+    setSplitPartsCurrency('AMD', false);
+    setSplitPartsChangeCurrency('USD', false);
+    calcSplitParts();
+    setTimeout(() => document.getElementById('splitPartsAmount')?.focus(), 0);
+}
+
+function handleSplitPartsAmountKey(event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    addSplitPartPayment();
+}
+
+function setSplitPartsCurrency(curr, shouldFocus = true) {
+    splitPartsCurrency = curr;
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+        document.getElementById(`splitPartsCurr-${code}`)?.classList.toggle('active', code === curr);
+        document.getElementById(`splitPartsRemainBtn-${code}`)?.classList.toggle('active', code === curr);
+    });
+    if (splitPartsPayments.length) setSplitPartsChangeCurrency(curr, false);
+    if (shouldFocus) {
+        const input = document.getElementById('splitPartsAmount');
+        setTimeout(() => {
+            input?.focus({ preventScroll: true });
+            input?.select();
+        }, 0);
+    }
+}
+
+function setSplitPartsChangeCurrency(curr, shouldCalc = true) {
+    splitPartsChangeCurrency = curr;
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
+        document.getElementById(`splitParts-change-${code}`)?.classList.toggle('active', code === curr);
+    });
+    if (shouldCalc) calcSplitParts();
+}
+
+function splitPartsInputValue(value, curr) {
+    const amount = Math.max(0, Number(value) || 0);
+    if (curr === 'EUR' && !Number.isInteger(amount)) return amount.toFixed(2);
+    return String(amount);
+}
+
+function fillSplitPartsRemaining(curr) {
+    const state = getSplitPartsState();
+    const value = state.remainingOptions[curr] || 0;
+    setSplitPartsCurrency(curr, false);
+    setSplitPartsChangeCurrency(curr);
+    const input = document.getElementById('splitPartsAmount');
+    if (input) {
+        input.value = splitPartsInputValue(value, curr);
+        setTimeout(() => {
+            input.focus({ preventScroll: true });
+            input.select();
+        }, 0);
+    }
+}
+
+async function addSplitPartPayment() {
+    const input = document.getElementById('splitPartsAmount');
+    const value = parseFloat(input?.value) || 0;
+    if (!(value > 0)) {
+        await showAppMessage({ title: 'Оплата частями', message: 'Введите сумму оплаты', okText: 'OK' });
+        setTimeout(() => {
+            input?.focus({ preventScroll: true });
+            input?.select();
+        }, 0);
+        return;
+    }
+    const rates = getRates();
+    splitPartsPayments.push({
+        part: splitPartsPayments.length + 1,
+        curr: splitPartsCurrency,
+        value,
+        amd: value * (rates[splitPartsCurrency] || 0),
+        statsIgnored: splitPartsCurrency === 'AMD'
+    });
+    input.value = '';
+    setSplitPartsChangeCurrency(splitPartsCurrency);
+    calcSplitParts();
+    setTimeout(() => input?.focus({ preventScroll: true }), 0);
+}
+
+function removeSplitPartPayment(index) {
+    splitPartsPayments.splice(index, 1);
+    splitPartsPayments = splitPartsPayments.map((payment, idx) => ({ ...payment, part: idx + 1 }));
+    calcSplitParts();
+    setTimeout(() => document.getElementById('splitPartsAmount')?.focus({ preventScroll: true }), 0);
+}
+
+function getSplitPartsState() {
+    const totalAmd = parseFloat(document.getElementById('priceAMD').value) || 0;
+    const rates = getRates();
+    const payments = splitPartsPayments.map((payment, index) => ({
+        ...payment,
+        part: index + 1,
+        amd: (Number(payment.value) || 0) * (rates[payment.curr] || 0),
+        statsIgnored: payment.curr === 'AMD'
+    }));
+    const receivedAMD = payments.reduce((sum, payment) => sum + payment.amd, 0);
+    const diffAMD = receivedAMD - totalAmd;
+    const remainingAMD = Math.max(0, totalAmd - receivedAMD);
+    const remainingOptions = {};
+    const changes = {};
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        const rate = rates[curr] || 0;
+        const rawDue = rate ? remainingAMD / rate : 0;
+        const rawChange = rate ? diffAMD / rate : 0;
+        remainingOptions[curr] = roundDueInOurFavor(rawDue, curr);
+        changes[curr] = diffAMD > 0 ? Math.max(0, roundChangeInOurFavor(rawChange, curr)) : 0;
+    });
+    return {
+        totalAmd,
+        payments,
+        receivedAMD,
+        diffAMD,
+        remainingAMD,
+        remainingOptions,
+        changes,
+        shortageAMD: diffAMD < 0 ? Math.round(Math.abs(diffAMD)) : 0
+    };
+}
+
+function getSplitPartsTipCurrency(state) {
+    if ((state.changes[splitPartsChangeCurrency] || 0) > 0) return splitPartsChangeCurrency;
+    return ['AMD', 'USD', 'EUR', 'RUB'].find(curr => (state.changes[curr] || 0) > 0) || splitPartsChangeCurrency;
+}
+
+function toggleSplitPartsTipMode() {
+    const state = getSplitPartsState();
+    const tipCurr = getSplitPartsTipCurrency(state);
+    if (!((state.changes[tipCurr] || 0) > 0)) {
+        isSplitPartsTipMode = false;
+        calcSplitParts();
+        return;
+    }
+    if (tipCurr !== splitPartsChangeCurrency) {
+        setSplitPartsChangeCurrency(tipCurr, false);
+    }
+    isSplitPartsTipMode = !isSplitPartsTipMode;
+    calcSplitParts();
+}
+
+function calcSplitParts() {
+    const state = getSplitPartsState();
+    const updateText = (id, value) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = value;
+    };
+    updateText('splitPartsReceivedAmd', `${Math.round(state.receivedAMD).toLocaleString()} ֏`);
+    updateText('splitPartsDiffAmd', `${Math.round(state.diffAMD).toLocaleString()} ֏`);
+    updateText('splitPartsRemainingAmd', `${Math.round(state.remainingAMD).toLocaleString()} ֏`);
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        updateText(`splitParts-rem-${curr}`, formatDueAmount(state.remainingOptions[curr] || 0, curr));
+        updateText(`splitParts-v-${curr}`, formatChangeAmount(state.changes[curr] || 0, curr));
+    });
+    updateText('splitPartsSelectedChange', formatChangeAmount(state.changes[splitPartsChangeCurrency] || 0, splitPartsChangeCurrency));
+    updateText('splitPartsSelectedChangeCurr', splitPartsChangeCurrency);
+
+    const list = document.getElementById('splitPartsList');
+    if (list) {
+        list.innerHTML = state.payments.length
+            ? state.payments.map((payment, index) => `
+                <div class="split-parts-item">
+                    <span>${index + 1}. ${formatChangeAmount(payment.value, payment.curr)} ${payment.curr}</span>
+                    <button type="button" class="split-parts-remove" onclick="removeSplitPartPayment(${index})">×</button>
+                </div>
+            `).join('')
+            : '<div class="split-parts-empty">Добавленных оплат пока нет</div>';
+    }
+
+    const tipCurr = getSplitPartsTipCurrency(state);
+    const tipValue = state.changes[tipCurr] || 0;
+    if (!(tipValue > 0)) isSplitPartsTipMode = false;
+    const tipBtn = document.getElementById('splitPartsTipToggler');
+    if (tipBtn) {
+        tipBtn.disabled = !(tipValue > 0);
+        tipBtn.classList.toggle('active', isSplitPartsTipMode);
+        tipBtn.innerText = isSplitPartsTipMode ? `В TIP: ${formatChangeAmount(tipValue, tipCurr)} ${tipCurr}` : 'Остаток на чай';
+    }
+    const diffEl = document.getElementById('splitPartsDiffAmd');
+    if (diffEl) diffEl.style.color = state.diffAMD < 0 ? '#ff7675' : '#55efc4';
+}
+
+async function saveSplitPartsPayment() {
+    const state = getSplitPartsState();
+    if (!state.totalAmd) {
+        await showAppMessage({ title: 'Оплата частями', message: 'Сначала введите сумму счета', okText: 'OK' });
+        document.getElementById('splitPartsOverlay').style.display = 'none';
+        focusMoneyInput('priceAMD');
+        return;
+    }
+    if (!state.payments.length) {
+        await showAppMessage({ title: 'Оплата частями', message: 'Добавьте хотя бы одну оплату', okText: 'OK' });
+        setTimeout(() => document.getElementById('splitPartsAmount')?.focus({ preventScroll: true }), 0);
+        return;
+    }
+
+    const rates = getRates();
+    const billId = Date.now();
+    const billDate = new Date().toLocaleDateString('ru-RU');
+    const billTime = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
+    const tipCurr = getSplitPartsTipCurrency(state);
+    const selectedChange = state.changes[splitPartsChangeCurrency] || 0;
+    const tipChange = state.changes[tipCurr] || 0;
+    const useTip = isSplitPartsTipMode && tipChange > 0 && state.diffAMD > 0;
+    const changeCurrForSave = useTip ? tipCurr : splitPartsChangeCurrency;
+    const changeForSave = useTip ? 0 : selectedChange;
+    const tipAmount = useTip ? tipChange : 0;
+    const tipCurrForSave = useTip ? tipCurr : null;
+    const tipAMD = useTip ? tipChange * (rates[tipCurr] || 0) : 0;
+    const tipId = useTip ? billId + 1 : null;
+    const returnedChangeAMD = changeForSave * (rates[changeCurrForSave] || 0);
+    const receivedForTotalsAMD = Math.max(0, state.receivedAMD - returnedChangeAMD - tipAMD);
+    const paymentsForSave = state.payments.map(payment => ({
+        ...payment,
+        statsIgnored: payment.curr === 'AMD'
+    }));
+
+    const splitEntry = {
+        id: billId,
+        isSplit: true,
+        splitMode: 'parts',
+        date: billDate,
+        time: billTime,
+        billAmd: state.totalAmd,
+        payments: paymentsForSave,
+        payVal: paymentsForSave.map(payment => `${formatChangeAmount(payment.value, payment.curr)} ${payment.curr}`).join(' + '),
+        receivedAMD: receivedForTotalsAMD,
+        receivedRawAMD: state.receivedAMD,
+        diffAMD: state.diffAMD,
+        remainingAfterFirstAMD: state.remainingAMD,
+        remainingOptions: state.remainingOptions,
+        changeOptions: state.changes,
+        changeVal: changeForSave,
+        changeCurr: changeCurrForSave,
+        tipAmount,
+        tipCurr: tipCurrForSave,
+        tipAMD,
+        tipId,
+        shortageAMD: state.shortageAMD,
+        isShortage: state.shortageAMD > 0,
+        user: currentOperator,
+        role: currentRole,
+        status: ''
+    };
+
+    const saveResult = await ipcRenderer.invoke('save-bill', splitEntry);
+    if (!saveResult || saveResult.ok === false) {
+        await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить оплату частями', okText: 'OK' });
+        return;
+    }
+
+    const allBills = upsertLocal(readLocalList(DB_ALL_BILLS), splitEntry);
+    writeLocalList(DB_ALL_BILLS, allBills);
+    writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+
+    if (useTip) {
+        const tipEntry = {
+            id: tipId,
+            billId,
+            sourceBillId: billId,
+            date: billDate,
+            time: billTime,
+            val: tipAmount,
+            curr: tipCurrForSave,
+            amd: tipAMD,
+            user: currentOperator
+        };
+        writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
+        writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
+        ipcRenderer.send('save-tip', tipEntry);
+    }
+
+    document.getElementById('splitPartsOverlay').style.display = 'none';
+    splitPartsPayments = [];
+    isSplitPartsTipMode = false;
     activeTab = 'bills';
     document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
     prepareNewPaymentInput();
@@ -3715,6 +4718,7 @@ function focusAmountAfterWindowRestore() {
 if (typeof ipcRenderer.on === 'function') {
     ipcRenderer.on('focus-main-amount', focusAmountAfterWindowRestore);
     ipcRenderer.on('pos-amount-detected', (_event, payload = {}) => {
+        if (!currentUserSettings.enableF3Import) return;
         const amount = Number(payload.amount) || 0;
         const priceInput = document.getElementById('priceAMD');
         if (!priceInput || !(amount > 0)) {
@@ -3726,6 +4730,11 @@ if (typeof ipcRenderer.on === 'function') {
         focusMoneyInput('given', false);
         setTimeout(() => focusMoneyInput('given', false), 140);
     });
+    ipcRenderer.on('pos-amount-error', async (_event, payload = {}) => {
+        if (!currentUserSettings.enableF3Import) return;
+        await showAppMessage({ title: 'POS OCR', message: payload.error || 'OCR ничего не распознал', okText: 'OK' });
+        focusMoneyInput('priceAMD', false);
+    });
 }
 
 function prepareNewPaymentInput() {
@@ -3733,16 +4742,23 @@ function prepareNewPaymentInput() {
     const givenInput = document.getElementById('given');
     const splitVal1 = document.getElementById('splitVal1');
     const splitVal2 = document.getElementById('splitVal2');
+    const splitPartsAmount = document.getElementById('splitPartsAmount');
     const splitOverlay = document.getElementById('splitOverlay');
+    const splitPartsOverlay = document.getElementById('splitPartsOverlay');
 
     if (splitVal1) splitVal1.value = '';
     if (splitVal2) splitVal2.value = '';
+    if (splitPartsAmount) splitPartsAmount.value = '';
     if (splitOverlay) splitOverlay.style.display = 'none';
+    if (splitPartsOverlay) splitPartsOverlay.style.display = 'none';
+    splitPartsPayments = [];
 
     isTipMode = false;
     isSplitTipMode = false;
+    isSplitPartsTipMode = false;
     document.getElementById('tipToggler')?.classList.remove('active');
     document.getElementById('splitTipToggler')?.classList.remove('active');
+    document.getElementById('splitPartsTipToggler')?.classList.remove('active');
     recoverAmountInput(true);
 }
 
