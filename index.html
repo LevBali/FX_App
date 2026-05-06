@@ -4658,7 +4658,8 @@ async function processSaveInner() {
         finalChange = 0;
     }
 
-    const receivedAMD = givenAMD - (finalChange > 0 ? finalChange * (rates[changeCurrency] || 1) : 0);
+    const returnedChangeAMD = finalChange > 0 ? finalChange * (rates[changeCurrency] || 1) : 0;
+    const receivedAMD = Math.max(0, givenAMD - returnedChangeAMD - tipAMD);
 
     const billEntry = { 
         id: billId,
@@ -4711,14 +4712,15 @@ async function renderCurrentList() {
 
 function renderBillDetails(i) {
     const lines = [];
+    const receivedForDisplayAMD = billStatsReceivedAmdValue(i);
     if (i.isSplit || (i.payVal && String(i.payVal).includes('+'))) {
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal}</b></div>`);
         const exactLines = splitExactDueLines(i);
         if (exactLines.length) {
             lines.push(`<div style="font-size:12px;color:#666;">Без округления: <b>${exactLines.join(' | ')}</b></div>`);
         }
-        if (i.receivedAMD) {
-            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
+        if (receivedForDisplayAMD) {
+            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(receivedForDisplayAMD).toLocaleString()} ֏</div>`);
         }
         if (Number(i.changeVal) > 0 && i.changeCurr) {
             lines.push(`<div style="font-size:12px;color:#111;">Сдача: <b>${formatChangeAmount(i.changeVal || 0, i.changeCurr)} ${i.changeCurr}</b></div>`);
@@ -4748,8 +4750,8 @@ function renderBillDetails(i) {
         if (i.shortageAMD > 0) {
             lines.push(`<div style="font-size:12px;color:#ff4757;">Недоплата: <b>${i.shortageAMD} ֏${i.shortageInPayCurr ? ` / ${i.shortageInPayCurr} ${i.payCurr || ''}` : ''}</b></div>`);
         }
-        if (i.receivedAMD) {
-            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(i.receivedAMD).toLocaleString()} ֏</div>`);
+        if (receivedForDisplayAMD) {
+            lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(receivedForDisplayAMD).toLocaleString()} ֏</div>`);
         }
     }
     return lines.join('');
@@ -4947,7 +4949,34 @@ function paymentAmdValue(payment = {}) {
     return (Number(payment.value) || 0) * rateForCurrency(payment.curr || 'AMD');
 }
 
+function billRateForCurrency(bill = {}, curr = 'AMD') {
+    const code = curr || 'AMD';
+    if (code === 'AMD') return 1;
+    const savedRate = Number(bill.ratesSnapshot?.[code] || bill.rates?.[code] || (code === bill.payCurr ? bill.payRate : 0));
+    if (Number.isFinite(savedRate) && savedRate > 0) return savedRate;
+    if (code === bill.payCurr) return billPayRateForExactDue(bill);
+    return rateForCurrency(code);
+}
+
+function normalBillReceivedAmdValue(bill = {}) {
+    const payVal = Number(bill.payVal) || 0;
+    const grossAMD = payVal * billRateForCurrency(bill, bill.payCurr || 'AMD');
+    const changeAMD = Number(bill.changeVal) > 0
+        ? Number(bill.changeVal) * billRateForCurrency(bill, bill.changeCurr || bill.payCurr || 'AMD')
+        : 0;
+    const savedTipAMD = Number(bill.tipAMD);
+    const tipAMD = Number(bill.tipAmount) > 0
+        ? (Number.isFinite(savedTipAMD) && savedTipAMD > 0
+            ? savedTipAMD
+            : Number(bill.tipAmount) * billRateForCurrency(bill, bill.tipCurr || bill.changeCurr || bill.payCurr || 'AMD'))
+        : 0;
+    return Math.max(0, grossAMD - changeAMD - tipAMD);
+}
+
 function billReceivedAmdValue(bill = {}) {
+    if (!Array.isArray(bill.payments) && Number.isFinite(Number(bill.payVal)) && (Number(bill.changeVal) > 0 || Number(bill.tipAmount) > 0)) {
+        return normalBillReceivedAmdValue(bill);
+    }
     if (Number.isFinite(Number(bill.receivedAMD))) return Number(bill.receivedAMD) || 0;
     if (Array.isArray(bill.payments)) {
         return bill.payments.reduce((sum, payment) => sum + paymentAmdValue(payment), 0);
@@ -4991,11 +5020,7 @@ function buildSummaryFromShiftItems(shift = {}) {
         receivedAMD += billStatsReceivedAmdValue(bill);
         shortageAMD += Number(bill.shortageAMD) || 0;
 
-        if (Array.isArray(bill.payments)) {
-            bill.payments.forEach(payment => addPaymentEntryToTotals(cashTotals, payment));
-        } else {
-            addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
-        }
+        addBillCashFlowToTotals(cashTotals, bill);
     });
 
     tips.forEach(tip => {
@@ -5025,6 +5050,11 @@ function shiftSummaryValue(summary, fallback, key) {
         : (Number(fallback[key]) || 0);
 }
 
+function shiftSummarySource(shift = {}, fallback = null, saved = null) {
+    const hasDetailedItems = Array.isArray(shift.bills) || Array.isArray(shift.tips) || Array.isArray(shift.trash);
+    return hasDetailedItems ? (fallback || buildSummaryFromShiftItems(shift)) : (saved || shift.summary || {});
+}
+
 function buildWeeklyShiftSummary(shifts, weekKey = weekKeyForDate()) {
     const summary = {
         weekKey,
@@ -5048,22 +5078,23 @@ function buildWeeklyShiftSummary(shifts, weekKey = weekKeyForDate()) {
         .forEach(shift => {
             const saved = shift.summary || {};
             const fallback = buildSummaryFromShiftItems(shift);
+            const source = shiftSummarySource(shift, fallback, saved);
             summary.shiftsCount += 1;
-            summary.billsCount += shiftSummaryValue(saved, fallback, 'billsCount');
-            summary.tipsCount += shiftSummaryValue(saved, fallback, 'tipsCount');
-            summary.trashCount += shiftSummaryValue(saved, fallback, 'trashCount');
-            mergeCurrencyTotals(summary.cashTotals, saved.cashTotals || fallback.cashTotals);
-            mergeCurrencyTotals(summary.tipTotals, saved.tipTotals || fallback.tipTotals);
-            mergeTableTotalsByRole(summary.tableTotalsByRole, saved.tableTotalsByRole || fallback.tableTotalsByRole);
-            summary.planAMD += shiftSummaryValue(saved, fallback, 'planAMD');
-            summary.receivedAMD += shiftSummaryValue(saved, fallback, 'receivedAMD');
-            summary.shortageAMD += shiftSummaryValue(saved, fallback, 'shortageAMD');
-            summary.tipTotalAMD += shiftSummaryValue(saved, fallback, 'tipTotalAMD');
-            summary.totalWithTipAMD += Object.prototype.hasOwnProperty.call(saved, 'totalWithTipAMD')
-                ? (Number(saved.totalWithTipAMD) || 0)
+            summary.billsCount += shiftSummaryValue(source, fallback, 'billsCount');
+            summary.tipsCount += shiftSummaryValue(source, fallback, 'tipsCount');
+            summary.trashCount += shiftSummaryValue(source, fallback, 'trashCount');
+            mergeCurrencyTotals(summary.cashTotals, source.cashTotals || fallback.cashTotals);
+            mergeCurrencyTotals(summary.tipTotals, source.tipTotals || fallback.tipTotals);
+            mergeTableTotalsByRole(summary.tableTotalsByRole, source.tableTotalsByRole || fallback.tableTotalsByRole);
+            summary.planAMD += shiftSummaryValue(source, fallback, 'planAMD');
+            summary.receivedAMD += shiftSummaryValue(source, fallback, 'receivedAMD');
+            summary.shortageAMD += shiftSummaryValue(source, fallback, 'shortageAMD');
+            summary.tipTotalAMD += shiftSummaryValue(source, fallback, 'tipTotalAMD');
+            summary.totalWithTipAMD += Object.prototype.hasOwnProperty.call(source, 'totalWithTipAMD')
+                ? (Number(source.totalWithTipAMD) || 0)
                 : fallback.totalWithTipAMD;
-            summary.finalDiffAMD += Object.prototype.hasOwnProperty.call(saved, 'finalDiffAMD')
-                ? (Number(saved.finalDiffAMD) || 0)
+            summary.finalDiffAMD += Object.prototype.hasOwnProperty.call(source, 'finalDiffAMD')
+                ? (Number(source.finalDiffAMD) || 0)
                 : fallback.finalDiffAMD;
         });
 
@@ -5200,8 +5231,9 @@ async function renderShiftArchive() {
     }
 
     list.innerHTML = shifts.map(shift => {
-        const summary = shift.summary || {};
+        const savedSummary = shift.summary || {};
         const computedSummary = buildSummaryFromShiftItems(shift);
+        const summary = { ...computedSummary, ...shiftSummarySource(shift, computedSummary, savedSummary) };
         const tableTotalsByRole = summary.tableTotalsByRole || computedSummary.tableTotalsByRole || emptyTableTotalsByRole();
         const planAMDForShift = Object.prototype.hasOwnProperty.call(summary, 'planAMD')
             ? summary.planAMD
@@ -5614,9 +5646,27 @@ function paymentIgnoredInStats(payment = {}) {
     return Boolean(payment.statsIgnored || payment.ignoreStats || (payment.part && payment.curr === 'AMD'));
 }
 
-function addPaymentEntryToTotals(totals, payment = {}) {
+function addPaymentEntryToTotals(totals, payment = {}, options = {}) {
     if (paymentIgnoredInStats(payment)) return;
+    if (options.includeAMD === false && (payment.curr || 'AMD') === 'AMD') return;
     addPaymentToTotals(totals, payment.curr, payment.value);
+}
+
+function subtractPaymentFromTotals(totals, curr, value) {
+    addPaymentToTotals(totals, curr, -(Number(value) || 0));
+}
+
+function addBillCashFlowToTotals(totals, bill = {}, options = {}) {
+    const includeAMD = options.includeAMD !== false;
+    if (Array.isArray(bill.payments)) {
+        bill.payments.forEach(payment => addPaymentEntryToTotals(totals, payment, { includeAMD }));
+    } else if (includeAMD || bill.payCurr !== 'AMD') {
+        addPaymentToTotals(totals, bill.payCurr, bill.payVal);
+    }
+
+    if (Number(bill.changeVal) > 0 && (includeAMD || bill.changeCurr !== 'AMD')) {
+        subtractPaymentFromTotals(totals, bill.changeCurr, bill.changeVal);
+    }
 }
 
 function buildShiftSummary() {
@@ -5638,11 +5688,7 @@ function buildShiftSummary() {
         receivedAMD += billStatsReceivedAmdValue(bill);
         shortageAMD += Number(bill.shortageAMD) || 0;
 
-        if (Array.isArray(bill.payments)) {
-            bill.payments.forEach(payment => addPaymentEntryToTotals(cashTotals, payment));
-        } else {
-            addPaymentToTotals(cashTotals, bill.payCurr, bill.payVal);
-        }
+        addBillCashFlowToTotals(cashTotals, bill);
     });
 
     tips.forEach(tip => {
@@ -5933,13 +5979,7 @@ async function updateTotals() {
         const billAmd = billStatsBillAmdValue(b);
         planAMD += billAmd;
         addTableTotalByRole(tableTotalsByRole, b, billAmd);
-        if (Array.isArray(b.payments)) {
-            b.payments.forEach(payment => addPaymentEntryToTotals(totals, payment));
-        } else {
-            if (b.payCurr === 'RUB') totals.RUB += (parseFloat(b.payVal) || 0);
-            if (b.payCurr === 'USD') totals.USD += (parseFloat(b.payVal) || 0);
-            if (b.payCurr === 'EUR') totals.EUR += (parseFloat(b.payVal) || 0);
-        }
+        addBillCashFlowToTotals(totals, b, { includeAMD: false });
         totals.AMD += billStatsReceivedAmdValue(b);
         shortageTotal += (parseFloat(b.shortageAMD) || 0);
     });
