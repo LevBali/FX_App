@@ -392,7 +392,7 @@
     .split-pay-title { font-weight: 900; font-size: 13px; color: #ffffff; margin-bottom: 8px; text-transform: uppercase; }
     .split-currency-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; }
     .split-curr-btn { padding: 8px 4px; border: 2px solid #55efc4; border-radius: 10px; background: #2d3436; color: #ffffff; font-weight: 900; cursor: pointer; font-size: 12px; }
-    .split-curr-btn.active { border-color: #55efc4; background: #000000; color: #fff; }
+    .split-curr-btn.active { border-color: #8cffc1; background: #00a878; color: #fff; box-shadow: 0 0 0 3px rgba(0,168,120,0.22), inset 0 -2px 0 rgba(0,0,0,0.22); }
     .split-pay-input { width: 100%; padding: 10px; border: 3px solid #55efc4; border-radius: 10px; font-size: 20px; font-weight: 900; box-sizing: border-box; background: #111820; color: #ffffff; caret-color: #55efc4; }
     .split-pay-input::placeholder { color: #9fb0b7; opacity: 1; }
     .split-pay-input:focus { border-color: #55efc4; box-shadow: 0 0 0 3px rgba(85,239,196,0.2); }
@@ -400,8 +400,9 @@
     .split-summary-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 5px; }
     .split-change-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 8px; }
     .split-change-cell { background: #3d4446; border: 2px solid transparent; border-radius: 8px; padding: 8px 4px; text-align: center; font-size: 11px; cursor: pointer; color: #fff; }
-    .split-change-cell.active { background: #000; border-color: #55efc4; }
+    .split-change-cell.active { background: #00a878; border-color: #8cffc1; box-shadow: 0 0 0 3px rgba(0,168,120,0.18), inset 0 -2px 0 rgba(0,0,0,0.22); }
     .split-change-cell b { display: block; color: #55efc4; font-size: 14px; }
+    .split-change-cell.active b { color: #ffffff; }
     .split-tip-toggle { width: 100%; margin-top: 8px; padding: 8px 10px; border-radius: 8px; border: 2px solid #555; background: #444; color: #bbb; font-size: 11px; font-weight: 900; text-transform: uppercase; cursor: pointer; }
     .split-tip-toggle:disabled { opacity: 0.45; cursor: not-allowed; }
     .split-tip-toggle.active { background: #00ADB5; border-color: #00ADB5; color: #1f1f1f; }
@@ -417,7 +418,8 @@
     .split-parts-entry { grid-area: entry; margin-bottom: 0; }
     .split-parts-remaining { grid-area: remaining; margin-bottom: 0; }
     .split-parts-remaining .split-remaining-cell { cursor: pointer; font-family: inherit; }
-    .split-parts-remaining .split-remaining-cell.active { border-color: #55efc4; background: #111820; }
+    .split-parts-remaining .split-remaining-cell.active { border-color: #8cffc1; background: #00a878; box-shadow: 0 0 0 3px rgba(0,168,120,0.18), inset 0 -2px 0 rgba(0,0,0,0.22); }
+    .split-parts-remaining .split-remaining-cell.active b { color: #ffffff; }
     .split-parts-list { grid-area: list; background: #f5f7f9; border: 2px solid #dfe6ec; border-radius: 12px; padding: 10px; min-height: 78px; text-align: left; }
     .split-parts-empty { color: #7f8c8d; font-size: 12px; font-weight: 800; padding: 8px 2px; }
     .split-parts-item { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 8px 10px; margin-bottom: 6px; border-radius: 9px; background: #ffffff; border-left: 4px solid #00ADB5; color: #111820; font-size: 13px; font-weight: 900; }
@@ -1447,6 +1449,14 @@ function roundChangeInOurFavor(rawChange, curr) {
     if (curr === 'RUB') return roundRubleAmount(rawChange);
     if (curr === 'EUR') return roundEuroChange(rawChange);
     return Math.floor(rawChange);
+}
+
+function roundSplitChangeInOurFavor(rawChange, curr) {
+    if (!isFinite(rawChange)) return 0;
+    if (rawChange <= 0) return Math.floor(rawChange);
+    if (curr === 'RUB') return Math.floor((rawChange + 0.000001) / 50) * 50;
+    if (curr === 'EUR') return Math.floor((rawChange + 0.000001) * 2) / 2;
+    return Math.floor(rawChange + 0.000001);
 }
 
 function roundEuroChange(rawChange) {
@@ -4696,7 +4706,7 @@ function getSplitState() {
         const rawDue = rate ? remainingAfterFirstAMD / rate : 0;
         const raw = rate ? diffAMD / rate : 0;
         remainingOptions[curr] = roundDueInOurFavor(rawDue, curr);
-        changes[curr] = diffAMD > 0 ? Math.max(0, roundChangeInOurFavor(raw, curr)) : 0;
+        changes[curr] = diffAMD > 0 ? Math.max(0, roundSplitChangeInOurFavor(raw, curr)) : 0;
     });
 
     return {
@@ -4979,7 +4989,7 @@ function getSplitPartsState() {
         const rawDue = rate ? remainingAMD / rate : 0;
         const rawChange = rate ? diffAMD / rate : 0;
         remainingOptions[curr] = roundDueInOurFavor(rawDue, curr);
-        changes[curr] = diffAMD > 0 ? Math.max(0, roundChangeInOurFavor(rawChange, curr)) : 0;
+        changes[curr] = diffAMD > 0 ? Math.max(0, roundSplitChangeInOurFavor(rawChange, curr)) : 0;
     });
     return {
         totalAmd,
