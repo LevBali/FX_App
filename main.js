@@ -1650,9 +1650,9 @@ const DEFAULT_NETWORK_CONFIG = {
     mode: 'local',
     host: '',
     port: 9260,
-    updateSource: 'lan',
-    githubOwner: '',
-    githubRepo: '',
+    updateSource: 'github',
+    githubOwner: 'LevBali',
+    githubRepo: 'FX_App',
     githubBranch: 'main'
 };
 
@@ -1671,8 +1671,8 @@ function normalizeNetworkConfig(config = {}) {
     const port = Number.isFinite(rawPort) && rawPort > 0 && rawPort < 65536
         ? Math.round(rawPort)
         : DEFAULT_NETWORK_CONFIG.port;
-    const githubOwner = String(config.githubOwner || '').trim();
-    const githubRepo = String(config.githubRepo || '').trim();
+    const githubOwner = String(config.githubOwner || DEFAULT_NETWORK_CONFIG.githubOwner).trim();
+    const githubRepo = String(config.githubRepo || DEFAULT_NETWORK_CONFIG.githubRepo).trim();
     const githubBranch = String(config.githubBranch || DEFAULT_NETWORK_CONFIG.githubBranch).trim() || DEFAULT_NETWORK_CONFIG.githubBranch;
     return { mode, host, port, updateSource, githubOwner, githubRepo, githubBranch };
 }
