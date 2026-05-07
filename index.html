@@ -65,6 +65,7 @@
     .login-btn:active { transform: scale(0.97); }
     .login-btn.cashier { background: #27ae60; }
     .login-btn.dev { width: 100%; margin-top: 14px; background: #2d3436; }
+    .login-btn.test { width: 100%; margin-top: 12px; background: #111820; color: #55efc4; border: 2px solid #55efc4; box-shadow: 0 4px 0 #08787d; }
     .login-delete-btn { position: absolute; top: 7px; right: 7px; width: 26px; height: 26px; border: none; border-radius: 999px; background: #111820; color: #ff7675; font-size: 18px; font-weight: 900; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 6px 16px rgba(0,0,0,0.22); }
     .login-delete-btn.cashier { color: #55efc4; }
     .login-delete-btn:active { transform: scale(0.96); }
@@ -143,6 +144,12 @@
     .logout-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #05080a; }
     .emergency-close-btn { display: none; align-items: center; justify-content: center; width: 30px; height: 30px; border: none; border-radius: 50%; background: #d63031; color: #fff; font-size: 15px; font-weight: 900; cursor: pointer; box-shadow: 0 3px 0 #9f1f20; line-height: 1; }
     .emergency-close-btn:active { transform: translateY(2px); box-shadow: 0 1px 0 #9f1f20; }
+    .health-bar { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: -2px 0 8px; }
+    .health-pill { min-width: 0; border-radius: 8px; padding: 7px 8px; background: #111820; color: #dfe6ec; font-size: 10px; font-weight: 900; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .health-pill.ok { color: #55efc4; }
+    .health-pill.warn { color: #ffe08a; }
+    .health-pill.bad { color: #ff9c9c; }
+    .health-pill.test { background: #1f3f36; color: #55efc4; border: 1px solid #27ae60; }
     .user-settings-box { width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 30px); overflow: auto; background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 18px 45px rgba(0,0,0,0.32); }
     .user-settings-box h3 { margin: 0 0 12px; color: #111820; font-size: 18px; font-weight: 900; text-align: center; }
     .user-settings-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 6px; border-radius: 14px; background: #edf2f5; }
@@ -267,7 +274,7 @@
     .shift-report .row b { white-space: nowrap; font-weight: 900; }
     .shift-report .muted { color: #222; font-size: 11px; font-weight: 700; }
     .shift-report .total { font-size: 14px; font-weight: 900; }
-    .shift-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+    .shift-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
     .shift-action-btn { border: none; border-radius: 10px; padding: 12px 8px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; }
     .shift-print-btn { background: #4a76c5; }
     .shift-danger-btn { background: #d63031; }
@@ -503,6 +510,7 @@ body.silent-refresh .trash-item {
     #splitOverlay .split-box, .split-parts-box { width: min(100%, calc(100vw - 12px)); }
     #loginOverlay .login-box, .connection-card { flex: 1 1 100%; max-width: 360px; }
     .connection-row, .connection-actions { grid-template-columns: 1fr; }
+    .health-bar { grid-template-columns: 1fr 1fr; }
     .rates-header { gap: 4px; padding: 5px; }
     .rates-header .rate-item label { width: 14px; }
     .amount-input-row { grid-template-columns: minmax(0, 1fr) 88px; gap: 6px; }
@@ -594,6 +602,7 @@ body.silent-refresh .trash-item {
                 <div class="login-grid" id="cashierLoginGrid"></div>
                 <div class="login-note">Первый вход: кассир указывает имя и пароль</div>
             </div>
+            <button class="login-btn test" onclick="loginTestMode()">ТЕСТОВЫЙ РЕЖИМ</button>
             <button class="login-btn dev" onclick="loginDeveloper()">Разработка</button>
         </div>
 
@@ -881,6 +890,7 @@ body.silent-refresh .trash-item {
         <div id="shiftPrintArea" class="shift-report"></div>
         <div class="shift-actions">
             <button type="button" class="shift-action-btn shift-print-btn" onclick="printShiftReport()">ПРИНТ</button>
+            <button type="button" id="shiftShortPrintBtn" class="shift-action-btn shift-print-btn" onclick="printShortShiftReport()">КОРОТКО</button>
             <button type="button" id="shiftFinishBtn" class="shift-action-btn shift-danger-btn" onclick="finishShift()">ЗАКРЫТЬ</button>
         </div>
     </div>
@@ -893,6 +903,12 @@ body.silent-refresh .trash-item {
             <button type="button" class="settings-btn" onclick="openUserSettings()">НАСТРОЙКИ</button>
             <button type="button" class="logout-btn" onclick="logoutToLogin()">ВЫХОД</button>
             <button type="button" class="emergency-close-btn" id="emergencyCloseBtn" title="Экстренно закрыть программу на обоих ПК" onclick="emergencyCloseApp()">☠</button>
+        </div>
+        <div class="health-bar" id="appHealthBar">
+            <div class="health-pill" id="healthMode">Режим: рабочий</div>
+            <div class="health-pill" id="healthVersion">Версия: ...</div>
+            <div class="health-pill" id="healthConnection">Связь: ...</div>
+            <div class="health-pill" id="healthBackup">Бэкап: ...</div>
         </div>
 
         <div class="rates-header">
@@ -1521,13 +1537,26 @@ function calculateChangePreview() {
     if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = changeCurrency;
 }
 
+function localDataKey(key) {
+    return currentTestMode ? `${TEST_DB_PREFIX}${key}` : key;
+}
+
+function readLocalValue(key, fallback = '') {
+    const value = localStorage.getItem(localDataKey(key));
+    return value === null ? fallback : value;
+}
+
+function writeLocalValue(key, value) {
+    localStorage.setItem(localDataKey(key), String(value));
+}
+
 function readLocalList(key) {
-    try { return sortNewestFirst(JSON.parse(localStorage.getItem(key) || '[]')); }
+    try { return sortNewestFirst(JSON.parse(localStorage.getItem(localDataKey(key)) || '[]')); }
     catch { return []; }
 }
 
 function writeLocalList(key, value) {
-    localStorage.setItem(key, JSON.stringify(sortNewestFirst(value)));
+    localStorage.setItem(localDataKey(key), JSON.stringify(sortNewestFirst(value)));
 }
 
 function upsertLocal(list, item) {
@@ -1665,7 +1694,7 @@ function restoreTipForBill(bill) {
     if (!tipEntry) return;
     writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
     writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
-    ipcRenderer.send('save-tip', tipEntry);
+    appSend('save-tip', tipEntry);
 }
 
 function weekKeyForDate(input = new Date()) {
@@ -1753,6 +1782,7 @@ function buildShiftArchiveEntry(user, summary) {
         operator: userName,
         users: operators.join(', '),
         people,
+        testMode: currentTestMode,
         date,
         time,
         weekKey: weekKeyForDate(now),
@@ -1795,7 +1825,7 @@ function createBrowserIpcFallback() {
             if (channel === 'get-history-data') {
                 const allBills = readLocalList(DB_ALL_BILLS);
                 const personalBills = readLocalList(DB_BILLS);
-                const clearBefore = Number(localStorage.getItem(DB_HISTORY_CLEAR_BEFORE) || '0');
+                const clearBefore = Number(readLocalValue(DB_HISTORY_CLEAR_BEFORE, '0') || '0');
                 const visiblePersonalBills = personalBills.filter(item => Number(item.id) > clearBefore);
                 const visibleAllBills = allBills.filter(item => Number(item.id) > clearBefore);
                 const merged = visiblePersonalBills.reduce((list, item) => upsertLocal(list, item), visibleAllBills);
@@ -1888,7 +1918,7 @@ function createBrowserIpcFallback() {
                 const allBills = mergedBills.filter(item => !belongsToShift(item));
                 writeLocalList(DB_ALL_BILLS, allBills);
                 if (closeAll) {
-                    localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+                    writeLocalValue(DB_HISTORY_CLEAR_BEFORE, Date.now());
                     writeLocalList(DB_ALL_BILLS, []);
                 }
                 writeLocalList(DB_BILLS, []);
@@ -1919,7 +1949,7 @@ function createBrowserIpcFallback() {
 
             if (channel === 'clear-common-history') {
                 if (currentRole !== 'developer') return { ok: false, error: 'Доступно только разработчику' };
-                localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+                writeLocalValue(DB_HISTORY_CLEAR_BEFORE, Date.now());
                 writeLocalList(DB_ALL_BILLS, []);
                 return { ok: true };
             }
@@ -2024,10 +2054,29 @@ const ipcRenderer = electronApi && electronApi.ipcRenderer
     ? electronApi.ipcRenderer
     : createBrowserIpcFallback();
 const DEFAULT_USER_SETTINGS = { enableF1Toggle: true, enableF3Import: true, minimizeAfterSave: true };
+const TEST_DATA_INVOKE_CHANNELS = new Set([
+    'get-history-data',
+    'get-trash-data',
+    'get-user-tips',
+    'get-split-payments',
+    'save-bill',
+    'delete-bill',
+    'save-split-payment',
+    'delete-split-payment',
+    'restore-from-trash',
+    'close-shift',
+    'clear-developer-history',
+    'clear-common-history',
+    'get-shift-archive',
+    'clear-week-history'
+]);
+const TEST_DATA_SEND_CHANNELS = new Set(['save-tip', 'delete-tip', 'move-to-trash']);
+let testIpcFallback = null;
 let currentOperator = "";
 let currentRole = "";
 let currentUserId = "";
 let currentUserSettings = { ...DEFAULT_USER_SETTINGS };
+let currentTestMode = false;
 let isAlwaysOnTopMode = false;
 let changeCurrency = "USD";
 let splitChangeCurrency = "USD";
@@ -2058,6 +2107,9 @@ const DB_ALL_TIPS = 'fx_all_tips_v926';
 const DB_ALL_TRASH = 'fx_all_trash_v926';
 const DB_SHIFT_ARCHIVE = 'fx_shift_archive_v926';
 const DB_HISTORY_CLEAR_BEFORE = 'fx_history_clear_before_v926';
+const TEST_DB_PREFIX = 'fx_test_mode__';
+const TEST_MODE_SESSION_KEY = 'fx_test_mode_session_v1';
+const TEST_DATA_KEYS = [DB_BILLS, DB_TIPS, DB_TRASH, DB_SPLITS, DB_ALL_BILLS, DB_ALL_TIPS, DB_ALL_TRASH, DB_SHIFT_ARCHIVE, DB_HISTORY_CLEAR_BEFORE];
 const AUTH_STORAGE_KEY = 'fx_auth_accounts_v1';
 const DEVELOPER_PASSWORD = 'Zilker1056';
 const LEGACY_ADMIN_ACCOUNTS = ['Qnarik', 'Jasmin', 'Lilit', 'Nvard'];
@@ -2086,11 +2138,45 @@ let pendingUpdateConfig = null;
 let sessionUpdateTimer = null;
 let sessionUpdateBusy = false;
 
+function testIpcRenderer() {
+    if (!testIpcFallback) testIpcFallback = createBrowserIpcFallback();
+    return testIpcFallback;
+}
+
+function appSend(channel, payload) {
+    if (currentTestMode && TEST_DATA_SEND_CHANNELS.has(channel)) {
+        return testIpcRenderer().send(channel, payload);
+    }
+    return ipcRenderer.send(channel, payload);
+}
+
+function appInvoke(channel, payload) {
+    if (currentTestMode && TEST_DATA_INVOKE_CHANNELS.has(channel)) {
+        return testIpcRenderer().invoke(channel, payload);
+    }
+    return ipcRenderer.invoke(channel, payload);
+}
+
 function roleLabel(role) {
     if (role === 'admin') return 'Админ';
     if (role === 'cashier') return 'Кассир';
     if (role === 'developer') return 'Разработка';
     return '';
+}
+
+function setTestMode(enabled) {
+    currentTestMode = Boolean(enabled);
+    if (currentTestMode) {
+        sessionStorage.setItem(TEST_MODE_SESSION_KEY, '1');
+    } else {
+        sessionStorage.removeItem(TEST_MODE_SESSION_KEY);
+    }
+    document.body?.classList.toggle('test-mode-active', currentTestMode);
+    updateHealthBar();
+}
+
+function clearTestData() {
+    TEST_DATA_KEYS.forEach(key => localStorage.removeItem(`${TEST_DB_PREFIX}${key}`));
 }
 
 function normalizeRates(value = {}) {
@@ -2103,6 +2189,7 @@ function normalizeRates(value = {}) {
 }
 
 function canEditRates() {
+    if (currentTestMode) return false;
     return currentRole === 'admin' || currentRole === 'developer';
 }
 
@@ -2428,6 +2515,7 @@ function setNetworkStatus(message, tone = '') {
     if (!status) return;
     status.className = `connection-status ${tone}`.trim();
     status.innerText = message;
+    updateHealthBar();
 }
 
 function networkModeLabel(mode) {
@@ -2461,6 +2549,7 @@ function setConnectionIndicator(connected = false, checked = true) {
     indicator.title = connected
         ? 'Локальная связь подключена'
         : (checked ? 'Локальная связь не подключена' : 'Локальная связь не проверена');
+    updateHealthBar();
 }
 
 function updateConnectionIndicatorFromResult(result = {}, checked = true) {
@@ -2514,6 +2603,7 @@ function setUpdateStatus(message = '', tone = '') {
     status.className = `update-status ${tone}`.trim();
     status.innerText = message;
     status.style.display = message ? 'block' : 'none';
+    updateHealthBar();
 }
 
 function setBackupStatus(message = '', tone = '') {
@@ -2522,6 +2612,56 @@ function setBackupStatus(message = '', tone = '') {
     status.className = `update-status ${tone}`.trim();
     status.innerText = message;
     status.style.display = message ? 'block' : 'none';
+    updateHealthBar();
+}
+
+function setHealthPill(id, text, tone = '') {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.className = `health-pill ${tone}`.trim();
+    el.innerText = text;
+    el.title = text;
+}
+
+function updateHealthBar() {
+    const modeText = currentTestMode ? 'Режим: ТЕСТ' : 'Режим: рабочий';
+    setHealthPill('healthMode', modeText, currentTestMode ? 'test' : 'ok');
+
+    const versionText = localAppManifest?.version ? `Версия: ${localAppManifest.version}` : 'Версия: ...';
+    setHealthPill('healthVersion', versionText, 'ok');
+
+    const config = normalizeNetworkConfig(collectNetworkConfig());
+    const indicator = document.getElementById('connectionIndicator');
+    const connectionTone = indicator?.classList.contains('online')
+        ? 'ok'
+        : indicator?.classList.contains('offline')
+            ? 'bad'
+            : 'warn';
+    const connectionText = config.mode === 'local'
+        ? 'Связь: локально'
+        : indicator?.classList.contains('online')
+            ? 'Связь: OK'
+            : indicator?.classList.contains('offline')
+                ? 'Связь: нет'
+                : 'Связь: ...';
+    setHealthPill('healthConnection', connectionText, config.mode === 'local' ? 'warn' : connectionTone);
+
+    const backupStatus = document.getElementById('backupStatus');
+    const backupText = currentTestMode
+        ? 'Бэкап: тест не уходит'
+        : backupStatus?.classList.contains('ok')
+            ? 'Бэкап: OK'
+            : backupStatus?.classList.contains('bad')
+                ? 'Бэкап: ошибка'
+                : 'Бэкап: проверь';
+    const backupTone = currentTestMode
+        ? 'test'
+        : backupStatus?.classList.contains('ok')
+            ? 'ok'
+            : backupStatus?.classList.contains('bad')
+                ? 'bad'
+                : 'warn';
+    setHealthPill('healthBackup', backupText, backupTone);
 }
 
 function updateBackupMenuVisibility(enabled) {
@@ -2776,6 +2916,7 @@ function setVersionBadge(local = localAppManifest, remote = null, updateAvailabl
         : '';
     badge.innerText = `Версия: ${localText}${remoteText}${updateAvailable ? ' | нужно обновить' : ''}`;
     badge.style.color = updateAvailable ? '#ff7675' : '#55efc4';
+    updateHealthBar();
 }
 
 async function loadLocalAppManifest() {
@@ -3098,6 +3239,7 @@ function saveUpdateResumeSession() {
         user: currentOperator,
         role: currentRole,
         userId: currentUserId,
+        testMode: currentTestMode,
         activeTab,
         historyCurrencyFilter,
         openedShiftId,
@@ -3281,6 +3423,7 @@ async function restoreUpdateSessionIfNeeded() {
     currentOperator = String(saved.user || '');
     currentRole = String(saved.role || '');
     currentUserId = String(saved.userId || '');
+    setTestMode(Boolean(saved.testMode));
     activeTab = saved.activeTab || 'bills';
     if ((activeTab === 'shifts' || activeTab === 'week') && saved.role !== 'admin' && saved.role !== 'developer') activeTab = 'bills';
     historyCurrencyFilter = saved.historyCurrencyFilter || 'ALL';
@@ -3288,8 +3431,12 @@ async function restoreUpdateSessionIfNeeded() {
     sessionStorage.setItem('fx_operator', currentOperator);
     sessionStorage.setItem('fx_role', currentRole);
     sessionStorage.setItem('fx_user_id', currentUserId);
-    await loadCurrentUserSettings();
-    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
+    if (currentTestMode) {
+        currentUserSettings = { ...DEFAULT_USER_SETTINGS };
+    } else {
+        await loadCurrentUserSettings();
+        ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
+    }
 
     setOperator(currentOperator);
     ['loginOverlay', 'ratesOverlay', 'splitOverlay', 'splitPartsOverlay', 'shiftOverlay', 'manualTipOverlay', 'userSettingsOverlay', 'appPromptOverlay'].forEach(id => {
@@ -3978,15 +4125,32 @@ async function loginDeveloper() {
     await completeLogin({ id: 'developer', name: 'Разработка', role: 'developer' });
 }
 
+async function loginTestMode() {
+    const ok = await showAppConfirm({
+        title: 'Тестовый режим',
+        message: 'Открыть отдельную тестовую смену? Тестовые чеки, TIP, корзина и смены не попадут в рабочую базу и бэкап.',
+        okText: 'Открыть'
+    });
+    if (!ok) return;
+    clearUpdateResumeSession();
+    setTestMode(true);
+    await completeLogin({ id: 'test_mode', name: 'Тестовый режим', role: 'admin', testMode: true });
+}
+
 async function completeLogin(account) {
+    setTestMode(Boolean(account.testMode));
     currentOperator = account.name;
     currentRole = account.role;
     currentUserId = account.id;
     sessionStorage.setItem('fx_operator', currentOperator);
     sessionStorage.setItem('fx_role', currentRole);
     sessionStorage.setItem('fx_user_id', currentUserId);
-    await loadCurrentUserSettings();
-    ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
+    if (currentTestMode) {
+        currentUserSettings = { ...DEFAULT_USER_SETTINGS };
+    } else {
+        await loadCurrentUserSettings();
+        ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
+    }
 
     setOperator(currentOperator);
     document.getElementById('loginOverlay').style.display = 'none';
@@ -4045,20 +4209,20 @@ function renderDeleteButton(id, type = 'bills') {
 
 async function syncBillsFromDisk() {
     try {
-        const persistedBills = await ipcRenderer.invoke('get-history-data');
+        const persistedBills = await appInvoke('get-history-data');
         if (Array.isArray(persistedBills)) {
             writeLocalList(DB_ALL_BILLS, persistedBills);
             writeLocalList(DB_BILLS, personalBillsFrom(persistedBills));
         }
 
-        const persistedTrash = await ipcRenderer.invoke('get-trash-data');
+        const persistedTrash = await appInvoke('get-trash-data');
         if (Array.isArray(persistedTrash)) {
             writeLocalList(DB_ALL_TRASH, persistedTrash);
             writeLocalList(DB_TRASH, personalTrashFrom(persistedTrash));
         }
 
         if (currentOperator) {
-            const userTips = await ipcRenderer.invoke('get-user-tips', { user: currentOperator, role: currentRole });
+            const userTips = await appInvoke('get-user-tips', { user: currentOperator, role: currentRole });
             if (Array.isArray(userTips)) {
                 if (currentRole === 'admin' || currentRole === 'developer') {
                     writeLocalList(DB_ALL_TIPS, userTips);
@@ -4138,13 +4302,14 @@ async function emergencyCloseApp() {
 function workspaceRenderSignature() {
     return JSON.stringify({
         tab: activeTab,
-        bills: localStorage.getItem(DB_BILLS) || '',
-        tips: localStorage.getItem(DB_TIPS) || '',
-        trash: localStorage.getItem(DB_TRASH) || '',
-        shifts: localStorage.getItem(DB_SHIFT_ARCHIVE) || '',
-        allBills: localStorage.getItem(DB_ALL_BILLS) || '',
-        allTips: localStorage.getItem(DB_ALL_TIPS) || '',
-        allTrash: localStorage.getItem(DB_ALL_TRASH) || ''
+        mode: currentTestMode ? 'test' : 'work',
+        bills: localStorage.getItem(localDataKey(DB_BILLS)) || '',
+        tips: localStorage.getItem(localDataKey(DB_TIPS)) || '',
+        trash: localStorage.getItem(localDataKey(DB_TRASH)) || '',
+        shifts: localStorage.getItem(localDataKey(DB_SHIFT_ARCHIVE)) || '',
+        allBills: localStorage.getItem(localDataKey(DB_ALL_BILLS)) || '',
+        allTips: localStorage.getItem(localDataKey(DB_ALL_TIPS)) || '',
+        allTrash: localStorage.getItem(localDataKey(DB_ALL_TRASH)) || ''
     });
 }
 
@@ -4266,6 +4431,7 @@ async function logoutToLogin() {
     currentRole = "";
     currentUserId = "";
     currentUserSettings = normalizeUserSettings({});
+    setTestMode(false);
     sessionStorage.removeItem('fx_operator');
     sessionStorage.removeItem('fx_role');
     sessionStorage.removeItem('fx_user_id');
@@ -4303,9 +4469,11 @@ async function logoutToLogin() {
 function setOperator(name) {
     currentOperator = name;
     const roleText = roleLabel(currentRole);
-    document.getElementById('currentUserName').innerText = roleText ? `${name} (${roleText})` : name;
+    const suffix = currentTestMode ? 'ТЕСТ' : roleText;
+    document.getElementById('currentUserName').innerText = suffix ? `${name} (${suffix})` : name;
     updateDeveloperToolsVisibility();
     updateRateAccess();
+    updateHealthBar();
 }
 
 function updateDeveloperToolsVisibility() {
@@ -4319,12 +4487,15 @@ function updateDeveloperToolsVisibility() {
     const weekPrintBtn = document.getElementById('weekPrintBtn');
     const emergencyCloseBtn = document.getElementById('emergencyCloseBtn');
     const tabsBox = document.querySelector('.tabs');
-    if (cleanBtn) cleanBtn.style.display = isDeveloper ? 'block' : 'none';
+    if (cleanBtn) {
+        cleanBtn.style.display = (isDeveloper || currentTestMode) ? 'block' : 'none';
+        cleanBtn.innerText = currentTestMode ? 'ОЧИСТИТЬ ТЕСТЫ' : 'ОЧИСТИТЬ ТЕСТЫ';
+    }
     if (commonHistoryBtn) commonHistoryBtn.style.display = isDeveloper ? 'block' : 'none';
     if (closeShiftBtn) closeShiftBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekClearBtn) weekClearBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
-    if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift ? 'inline-flex' : 'none';
+    if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift && !currentTestMode ? 'inline-flex' : 'none';
     if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
         ? 'repeat(6, minmax(0, 1fr))'
         : 'repeat(4, minmax(0, 1fr))';
@@ -4641,7 +4812,7 @@ async function saveSplitPayment() {
         status: ''
     };
 
-    const saveResult = await ipcRenderer.invoke('save-bill', splitEntry);
+    const saveResult = await appInvoke('save-bill', splitEntry);
     if (!saveResult || saveResult.ok === false) {
         await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить раздельную оплату', okText: 'OK' });
         return;
@@ -4665,7 +4836,7 @@ async function saveSplitPayment() {
         };
         writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
         writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
-        ipcRenderer.send('save-tip', tipEntry);
+        appSend('save-tip', tipEntry);
     }
 
     const legacySplit = document.getElementById('splitOverlay');
@@ -4946,7 +5117,7 @@ async function saveSplitPartsPayment() {
         status: ''
     };
 
-    const saveResult = await ipcRenderer.invoke('save-bill', splitEntry);
+    const saveResult = await appInvoke('save-bill', splitEntry);
     if (!saveResult || saveResult.ok === false) {
         await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить оплату частями', okText: 'OK' });
         return;
@@ -4970,7 +5141,7 @@ async function saveSplitPartsPayment() {
         };
         writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
         writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
-        ipcRenderer.send('save-tip', tipEntry);
+        appSend('save-tip', tipEntry);
     }
 
     document.getElementById('splitPartsOverlay').style.display = 'none';
@@ -5059,7 +5230,7 @@ async function processSaveInner() {
         };
         writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
         writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
-        ipcRenderer.send('save-tip', tipEntry);
+        appSend('save-tip', tipEntry);
         finalChange = 0;
     }
 
@@ -5084,7 +5255,7 @@ async function processSaveInner() {
         user: currentOperator, role: currentRole, isShortage: isShortage
     };
     
-    const saveResult = await ipcRenderer.invoke('save-bill', billEntry);
+    const saveResult = await appInvoke('save-bill', billEntry);
     if (!saveResult || saveResult.ok === false) {
         await showAppMessage({ title: 'Ошибка', message: saveResult?.error || 'Не удалось сохранить чек в файл', okText: 'OK' });
         focusMoneyInput('priceAMD');
@@ -5550,7 +5721,7 @@ async function renderWeeklyReportView() {
 async function loadShiftArchiveForReports() {
     let shifts = [];
     try {
-        const loaded = await ipcRenderer.invoke('get-shift-archive');
+        const loaded = await appInvoke('get-shift-archive');
         shifts = Array.isArray(loaded) ? loaded : [];
         writeLocalList(DB_SHIFT_ARCHIVE, shifts);
     } catch {
@@ -5573,7 +5744,7 @@ function renderWeeklyPrintReport(shifts) {
     const summary = buildWeeklyShiftSummary(shifts, weekKeyForDate());
     const now = new Date();
     report.innerHTML = `
-        <h2>НЕДЕЛЬНЫЙ ОТЧЕТ</h2>
+        <h2>${currentTestMode ? 'ТЕСТ - ' : ''}НЕДЕЛЬНЫЙ ОТЧЕТ</h2>
         <div class="row"><span>Неделя</span><b>${escapeHtml(summary.weekKey)}</b></div>
         <div class="row"><span>Дата печати</span><b>${escapeHtml(now.toLocaleDateString('ru-RU'))}</b></div>
         <div class="row"><span>Время</span><b>${escapeHtml(now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }))}</b></div>
@@ -5806,7 +5977,7 @@ function renderArchiveShiftReport(shift = {}, options = {}) {
     const visibleBills = printAll ? filteredBills : filteredBills.slice(pageStart, pageStart + ARCHIVE_SHIFT_PAGE_SIZE);
     target.innerHTML = `
         <div class="archive-shift-report">
-            <h2>Смена</h2>
+            <h2>${shift.testMode ? 'ТЕСТ - ' : ''}Смена</h2>
             <div class="archive-shift-meta">
                 ${escapeHtml(shift.date || '')} ${escapeHtml(shift.time || '')}<br>
                 ${escapeHtml(view.peopleLabel || shift.operator || '')}
@@ -5837,6 +6008,35 @@ function renderArchiveShiftReport(shift = {}, options = {}) {
             ${renderArchiveBillRows(filteredTrash, 'Удалённых чеков нет', true)}
             <div class="archive-print-note">Печать выводит эту статистику смены.</div>
         </div>`;
+}
+
+function renderArchiveShiftShortReport(shift = {}) {
+    const target = document.getElementById('shiftPrintArea');
+    if (!target) return;
+    const view = buildShiftArchiveView(shift);
+    const summary = view.summary;
+    const tableTotalsByRole = view.tableTotalsByRole;
+    target.innerHTML = `
+        <h2>${shift.testMode ? 'ТЕСТ - ' : ''}КОРОТКИЙ ОТЧЕТ</h2>
+        <div class="row"><span>Дата</span><b>${escapeHtml(shift.date || '')}</b></div>
+        <div class="row"><span>Время</span><b>${escapeHtml(shift.time || '')}</b></div>
+        <div class="row"><span>Смена</span><b>${escapeHtml(view.peopleLabel || shift.operator || '-')}</b></div>
+        ${view.closedByLabel ? `<div class="row"><span>Закрыл</span><b>${escapeHtml(view.closedByLabel)}</b></div>` : ''}
+        <div class="line"></div>
+        <div class="row"><span>Чеков</span><b>${summary.billsCount ?? view.bills.length}</b></div>
+        <div class="row"><span>TIP</span><b>${summary.tipsCount ?? view.tips.length}</b></div>
+        <div class="row"><span>Корзина</span><b>${summary.trashCount ?? view.trash.length}</b></div>
+        ${renderCurrencyRows('ПОЛУЧЕНО', summary.cashTotals || emptyCurrencyTotals())}
+        ${renderCurrencyRows('TIP', summary.tipTotals || emptyCurrencyTotals())}
+        <div class="line"></div>
+        <div class="muted">СУММА СТОЛОВ</div>
+        <div class="row"><span>Кассир</span><b>${formatReceiptMoney(tableTotalsByRole.cashier, '֏')}</b></div>
+        <div class="row"><span>Менеджер</span><b>${formatReceiptMoney(tableTotalsByRole.manager, '֏')}</b></div>
+        <div class="row"><span>Общая сумма</span><b>${formatReceiptMoney(summary.planAMD, '֏')}</b></div>
+        <div class="row"><span>В кассе + TIP</span><b>${formatReceiptMoney(summary.totalWithTipAMD, '֏')}</b></div>
+        <div class="row"><span>Недоплата</span><b>${formatReceiptMoney(summary.shortageAMD, '֏')}</b></div>
+        <div class="row total"><span>Разница</span><b>${formatReceiptMoney(summary.finalDiffAMD, '֏')}</b></div>
+    `;
 }
 
 async function openArchiveShiftWindow(id) {
@@ -5928,7 +6128,7 @@ async function clearCurrentWeekHistory() {
     }
 
     try {
-        const result = await ipcRenderer.invoke('clear-week-history', { user: currentOperator, role: currentRole, weekKey });
+        const result = await appInvoke('clear-week-history', { user: currentOperator, role: currentRole, weekKey });
         if (!result || result.ok === false) {
             await showAppMessage({ title: 'Недельный отчет', message: result?.error || 'Не удалось очистить недельный отчет', okText: 'OK' });
             recoverAmountInput(false);
@@ -5996,7 +6196,7 @@ async function saveManualTip() {
     };
     writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
     writeLocalList(DB_TIPS, personalTipsFrom(readLocalList(DB_ALL_TIPS)));
-    ipcRenderer.send('save-tip', tipEntry);
+    appSend('save-tip', tipEntry);
     closeManualTip();
     if (activeTab === 'tips') await renderHistory();
     updateTotals();
@@ -6060,7 +6260,7 @@ async function renderSplitPayments() {
     const list = document.getElementById('splitList');
     if (!list) return;
 
-    const splits = await ipcRenderer.invoke('get-split-payments') || [];
+    const splits = await appInvoke('get-split-payments') || [];
     const query = document.getElementById('historySearch')?.value || "";
     const filtered = sortNewestFirst(splits).filter(i => itemMatchesSearch(i, query));
 
@@ -6093,13 +6293,13 @@ async function deleteSplitPayment(id) {
         return;
     }
     if (!(await requireDeletePinIfNeeded())) return;
-    const splits = await ipcRenderer.invoke('get-split-payments') || [];
+    const splits = await appInvoke('get-split-payments') || [];
     const split = splits.find(s => Number(s.id) === Number(id));
     if (split) {
         split.deletedAt = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
         split.status = "Удалено";
-        ipcRenderer.send('move-to-trash', split);
-        await ipcRenderer.invoke('delete-split-payment', id);
+        appSend('move-to-trash', split);
+        await appInvoke('delete-split-payment', id);
     }
     await renderCurrentList();
     updateTotals();
@@ -6110,7 +6310,7 @@ async function renderTrash() {
     const list = document.getElementById('trash-list');
     if (!list) return;
 
-    const allTrash = await ipcRenderer.invoke('get-trash-data') || [];
+    const allTrash = await appInvoke('get-trash-data') || [];
     if (Array.isArray(allTrash)) {
         writeLocalList(DB_ALL_TRASH, allTrash);
         writeLocalList(DB_TRASH, personalTrashFrom(allTrash));
@@ -6157,7 +6357,7 @@ async function renderTrash() {
     bills = upsertLocal(bills, restored);
     writeLocalList(DB_BILLS, bills);
 
-    const result = await ipcRenderer.invoke('restore-from-trash', item);
+    const result = await appInvoke('restore-from-trash', item);
     if (!result || result.ok === false) {
         await showAppMessage({ title: 'Корзина', message: result?.error || 'Не удалось восстановить чек', okText: 'OK' });
         recoverAmountInput(false);
@@ -6190,12 +6390,12 @@ async function deleteToTrash(id, type = 'bills') {
 
     try {
         const dbName = type === 'tips' ? DB_TIPS : DB_BILLS;
-        let items = JSON.parse(localStorage.getItem(dbName) || '[]');
+        let items = readLocalList(dbName);
         const index = items.findIndex(i => Number(i.id) === Number(id));
         let item = index !== -1 ? items[index] : null;
 
         if (!item && type === 'bills') {
-            const fileBills = await ipcRenderer.invoke('get-history-data') || [];
+            const fileBills = await appInvoke('get-history-data') || [];
             item = fileBills.find(i => Number(i.id) === Number(id));
         }
 
@@ -6213,7 +6413,7 @@ async function deleteToTrash(id, type = 'bills') {
         }
 
         if (type === 'bills') {
-            const result = await ipcRenderer.invoke('delete-bill', { id, item });
+            const result = await appInvoke('delete-bill', { id, item });
             if (!result || result.ok === false) {
                 await showAppMessage({ title: 'Удаление', message: result?.error || 'Не удалось переместить чек в корзину', okText: 'OK' });
                 recoverAmountInput(false);
@@ -6221,9 +6421,9 @@ async function deleteToTrash(id, type = 'bills') {
             }
             await syncBillsFromDisk();
         } else {
-            ipcRenderer.send('delete-tip', item);
+            appSend('delete-tip', item);
             items = items.filter(i => Number(i.id) !== Number(id));
-            localStorage.setItem(dbName, JSON.stringify(items));
+            writeLocalList(dbName, items);
         }
 
         await renderCurrentList();
@@ -6322,6 +6522,7 @@ function buildShiftSummary() {
     return {
         operator: currentOperator || 'Не выбран',
         role: roleLabel(currentRole),
+        testMode: currentTestMode,
         date: now.toLocaleDateString('ru-RU'),
         time: now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' }),
         rates: {
@@ -6361,7 +6562,7 @@ function renderShiftReport() {
     if (!report) return;
 
     report.innerHTML = `
-        <h2>ЗАКРЫТИЕ СМЕНЫ</h2>
+        <h2>${currentTestMode ? 'ТЕСТ - ' : ''}ЗАКРЫТИЕ СМЕНЫ</h2>
         <div class="row"><span>Дата</span><b>${escapeHtml(summary.date)}</b></div>
         <div class="row"><span>Время</span><b>${escapeHtml(summary.time)}</b></div>
         <div class="row"><span>Сотрудник</span><b>${escapeHtml(summary.operator)}</b></div>
@@ -6431,6 +6632,29 @@ async function printShiftReport() {
     }, 100);
 }
 
+async function printShortShiftReport() {
+    if (shiftPrintMode === "archive" && lastArchivePrintShift) {
+        renderArchiveShiftShortReport(lastArchivePrintShift);
+    } else if (shiftPrintMode === "week") {
+        renderWeeklyPrintReport(lastWeeklyPrintShifts);
+    } else {
+        renderShiftReport();
+    }
+    try {
+        const result = await ipcRenderer.invoke('print-shift-report');
+        if (result?.ok) {
+            if (shiftPrintMode === "archive" && lastArchivePrintShift) renderArchiveShiftReport(lastArchivePrintShift);
+            recoverAmountInput(false);
+            return;
+        }
+    } catch {}
+    window.print();
+    setTimeout(() => {
+        if (shiftPrintMode === "archive" && lastArchivePrintShift) renderArchiveShiftReport(lastArchivePrintShift);
+        recoverAmountInput(false);
+    }, 100);
+}
+
 function applyClosedShiftLocalState(user) {
     const userName = String(user || currentOperator || '');
     const closeAll = currentRole === 'admin' || currentRole === 'developer';
@@ -6452,7 +6676,7 @@ function applyClosedShiftLocalState(user) {
     writeLocalList(DB_ALL_TIPS, readLocalList(DB_ALL_TIPS).filter(item => !belongsToShift(item)));
     writeLocalList(DB_ALL_TRASH, mergedTrash.filter(item => !belongsToShift(item)));
     if (closeAll) {
-        localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+        writeLocalValue(DB_HISTORY_CLEAR_BEFORE, Date.now());
         writeLocalList(DB_ALL_BILLS, []);
     }
 }
@@ -6471,11 +6695,26 @@ function applyDeveloperHistoryClearLocal(user) {
 }
 
 function applyCommonHistoryClearLocal() {
-    localStorage.setItem(DB_HISTORY_CLEAR_BEFORE, String(Date.now()));
+    writeLocalValue(DB_HISTORY_CLEAR_BEFORE, Date.now());
     writeLocalList(DB_ALL_BILLS, []);
 }
 
 async function clearDeveloperHistory() {
+    if (currentTestMode) {
+        const ok = await showAppConfirm({
+            title: 'Очистить тесты',
+            message: 'Удалить все тестовые чеки, TIP, корзину и тестовые смены? Рабочие данные не будут затронуты.',
+            okText: 'Очистить'
+        });
+        if (!ok) return;
+        clearTestData();
+        await syncBillsFromDisk();
+        await renderCurrentList();
+        updateTotals();
+        prepareNewPaymentInput();
+        await showAppMessage({ title: 'Тестовый режим', message: 'Тестовые данные очищены.', okText: 'OK' });
+        return;
+    }
     if (currentRole !== 'developer') return;
     const ok = await showAppConfirm({
         title: 'Очистить тесты',
@@ -6488,7 +6727,7 @@ async function clearDeveloperHistory() {
     }
 
     try {
-        const result = await ipcRenderer.invoke('clear-developer-history', { user: currentOperator });
+        const result = await appInvoke('clear-developer-history', { user: currentOperator });
         if (!result || result.ok === false) {
             await showAppMessage({ title: 'Очистить тесты', message: result?.error || 'Не удалось очистить тестовую историю', okText: 'OK' });
             recoverAmountInput(false);
@@ -6519,7 +6758,7 @@ async function clearCommonHistory() {
     }
 
     try {
-        const result = await ipcRenderer.invoke('clear-common-history', { user: currentOperator });
+        const result = await appInvoke('clear-common-history', { user: currentOperator });
         if (!result || result.ok === false) {
             await showAppMessage({ title: 'Общая история', message: result?.error || 'Не удалось очистить общую историю', okText: 'OK' });
             recoverAmountInput(false);
@@ -6558,7 +6797,7 @@ async function finishShift() {
 
     try {
         const shiftSnapshot = buildShiftArchiveEntry(currentOperator, buildShiftSummary());
-        const result = await ipcRenderer.invoke('close-shift', {
+        const result = await appInvoke('close-shift', {
             user: currentOperator,
             role: currentRole,
             summary: shiftSnapshot.summary,
@@ -6595,8 +6834,8 @@ async function finishShift() {
 }
 
 async function updateTotals() {
-    const bills = JSON.parse(localStorage.getItem(DB_BILLS) || '[]');
-    const tips = JSON.parse(localStorage.getItem(DB_TIPS) || '[]');
+    const bills = readLocalList(DB_BILLS);
+    const tips = readLocalList(DB_TIPS);
 
     let totals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
     let tipTotals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
