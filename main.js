@@ -818,12 +818,18 @@ function buildBackupPayload(reason = 'manual') {
     const latestDataAtMs = newestBackupDataTime(data);
     const dataHash = backupDataHash(data);
     const localSavedAtMs = Number(backupState.lastLocalChangeAtMs) || latestDataAtMs;
+    const shiftBills = data.shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.bills) ? shift.bills.length : 0), 0);
+    const shiftTips = data.shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.tips) ? shift.tips.length : 0), 0);
+    const shiftTrash = data.shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.trash) ? shift.trash.length : 0), 0);
     const counts = {
         bills: data.bills.length,
         trash: data.trash.length,
         splits: data.splits.length,
         tips: data.tips.length,
         shifts: data.shifts.length,
+        shiftBills,
+        shiftTips,
+        shiftTrash,
         authAccounts
     };
     const hasData = Object.values(counts).some(value => Number(value) > 0);
@@ -1145,6 +1151,9 @@ function applyBackupPayload(payload) {
             splits: splits.length,
             tips: tips.length,
             shifts: shifts.length,
+            shiftBills: shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.bills) ? shift.bills.length : 0), 0),
+            shiftTips: shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.tips) ? shift.tips.length : 0), 0),
+            shiftTrash: shifts.reduce((sum, shift) => sum + (Array.isArray(shift?.trash) ? shift.trash.length : 0), 0),
             authAccounts: data.auth ? countAuthAccounts(data.auth) : 0
         }
     };
