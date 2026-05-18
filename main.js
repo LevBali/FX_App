@@ -2241,6 +2241,19 @@ function clearWeekShiftArchive(payload = {}) {
     };
 }
 
+function clearShiftArchive(payload = {}) {
+    if (payload.role !== 'developer' && payload.role !== 'admin') {
+        return { ok: false, error: 'Очистка смен доступна только администратору или разработчику' };
+    }
+
+    const before = shiftArchiveItems();
+    saveShiftArchiveItems([]);
+    return {
+        ok: true,
+        removed: before.length
+    };
+}
+
 function closeShiftForUser(user, payload = {}) {
     if (!user) return { ok: false, error: 'Не выбран сотрудник' };
     if (payload?.role === 'cashier') {
@@ -2613,6 +2626,8 @@ async function handleLocalChannel(channel, payload) {
             return shiftArchiveItems();
         case 'clear-week-history':
             return markDataChangedForBackup(clearWeekShiftArchive(payload), 'clear-week-history', 1000);
+        case 'clear-shift-archive':
+            return markDataChangedForBackup(clearShiftArchive(payload), 'clear-shift-archive', 1000);
         default:
             return [];
     }
@@ -3661,6 +3676,15 @@ ipcMain.handle('clear-week-history', async (event, payload) => {
         return await handleIpcChannel('clear-week-history', payload);
     } catch (err) {
         console.error("Ошибка очистки недельного отчета:", err);
+        return { ok: false, error: err.message };
+    }
+});
+
+ipcMain.handle('clear-shift-archive', async (event, payload) => {
+    try {
+        return await handleIpcChannel('clear-shift-archive', payload);
+    } catch (err) {
+        console.error("Ошибка очистки смен:", err);
         return { ok: false, error: err.message };
     }
 });

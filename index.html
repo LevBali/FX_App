@@ -1050,6 +1050,7 @@ body.silent-refresh .trash-item {
                 <div id="weeklyShiftReport" class="week-report-box"></div>
             </div>
             <div id="shift-view" style="display: none;">
+                <button type="button" id="shiftWeekClearBtn" class="week-clear-btn" onclick="clearShiftArchiveHistory()">ОЧИСТИТЬ СМЕНЫ</button>
                 <div id="shiftArchiveList" class="history-list"></div>
             </div>
         </div>
@@ -1977,6 +1978,13 @@ function createBrowserIpcFallback() {
                 return { ok: true, weekKey, removed: before.length - after.length };
             }
 
+            if (channel === 'clear-shift-archive') {
+                if (payload?.role !== 'developer' && payload?.role !== 'admin') return { ok: false, error: 'Доступно только администратору или разработчику' };
+                const before = readLocalList(DB_SHIFT_ARCHIVE);
+                writeLocalList(DB_SHIFT_ARCHIVE, []);
+                return { ok: true, removed: before.length };
+            }
+
             if (channel === 'get-network-config') {
                 const config = normalizeNetworkConfig(JSON.parse(localStorage.getItem(NETWORK_CONFIG_STORAGE_KEY) || '{}'));
                 return { ok: true, config, status: { config, serverRunning: false, urls: [] } };
@@ -2078,7 +2086,8 @@ const TEST_DATA_INVOKE_CHANNELS = new Set([
     'clear-developer-history',
     'clear-common-history',
     'get-shift-archive',
-    'clear-week-history'
+    'clear-week-history',
+    'clear-shift-archive'
 ]);
 const TEST_DATA_SEND_CHANNELS = new Set(['save-tip', 'delete-tip', 'move-to-trash']);
 let testIpcFallback = null;
@@ -4495,6 +4504,7 @@ function updateDeveloperToolsVisibility() {
     const closeShiftBtn = document.getElementById('closeShiftOpenBtn');
     const weekClearBtn = document.getElementById('weekClearBtn');
     const weekPrintBtn = document.getElementById('weekPrintBtn');
+    const shiftWeekClearBtn = document.getElementById('shiftWeekClearBtn');
     const emergencyCloseBtn = document.getElementById('emergencyCloseBtn');
     const tabsBox = document.querySelector('.tabs');
     if (cleanBtn) {
@@ -4505,6 +4515,7 @@ function updateDeveloperToolsVisibility() {
     if (closeShiftBtn) closeShiftBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekClearBtn) weekClearBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
+    if (shiftWeekClearBtn) shiftWeekClearBtn.style.display = canManageShift ? 'block' : 'none';
     if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift && !currentTestMode ? 'inline-flex' : 'none';
     if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
         ? 'repeat(6, minmax(0, 1fr))'
@@ -6150,6 +6161,37 @@ async function clearCurrentWeekHistory() {
         recoverAmountInput(false);
     } catch (err) {
         await showAppMessage({ title: 'Недельный отчет', message: 'Ошибка очистки: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
+async function clearShiftArchiveHistory() {
+    if (currentRole !== 'developer' && currentRole !== 'admin') return;
+    const archive = await loadShiftArchiveForReports();
+    const count = Array.isArray(archive) ? archive.length : 0;
+    const ok = await showAppConfirm({
+        title: 'Смены',
+        message: `Очистить весь архив смен (${count})? Недельный отчет тоже станет пустым. Активные операции, TIP, корзина и история чеков не трогаются.`,
+        okText: 'Очистить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await appInvoke('clear-shift-archive', { user: currentOperator, role: currentRole });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Смены', message: result?.error || 'Не удалось очистить смены', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+        writeLocalList(DB_SHIFT_ARCHIVE, []);
+        if (activeTab === 'week') await renderWeeklyReportView();
+        else await renderShiftArchive();
+        recoverAmountInput(false);
+    } catch (err) {
+        await showAppMessage({ title: 'Смены', message: 'Ошибка очистки смен: ' + (err.message || err), okText: 'OK' });
         recoverAmountInput(false);
     }
 }
