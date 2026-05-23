@@ -1447,9 +1447,9 @@ function setChangeCurr(curr) {
 function roundChangeInOurFavor(rawChange, curr) {
     if (!isFinite(rawChange)) return 0;
     if (rawChange <= 0) return Math.floor(rawChange);
-    if (curr === 'RUB') return roundRubleAmount(rawChange);
+    if (curr === 'RUB') return Math.floor((rawChange + 0.000001) / 50) * 50;
     if (curr === 'EUR') return roundEuroChange(rawChange);
-    return Math.floor(rawChange);
+    return Math.floor(rawChange + 0.000001);
 }
 
 function roundSplitChangeInOurFavor(rawChange, curr) {
