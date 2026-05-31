@@ -152,7 +152,7 @@
     .health-pill.test { background: #1f3f36; color: #55efc4; border: 1px solid #27ae60; }
     .user-settings-box { width: min(520px, calc(100vw - 24px)); max-height: calc(100vh - 30px); overflow: auto; background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 18px 45px rgba(0,0,0,0.32); }
     .user-settings-box h3 { margin: 0 0 12px; color: #111820; font-size: 18px; font-weight: 900; text-align: center; }
-    .user-settings-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; padding: 6px; border-radius: 14px; background: #edf2f5; }
+    .user-settings-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-bottom: 12px; padding: 6px; border-radius: 14px; background: #edf2f5; }
     .user-settings-tab { border: none; border-radius: 10px; padding: 11px 8px; background: transparent; color: #2d3436; font-size: 12px; font-weight: 900; cursor: pointer; text-transform: uppercase; }
     .user-settings-tab.active { background: #111820; color: #55efc4; box-shadow: 0 3px 0 #05080a; }
     .user-settings-page { display: none; }
@@ -161,6 +161,14 @@
     .user-settings-row { display: grid; grid-template-columns: 46px 1fr; gap: 10px; align-items: center; padding: 11px; margin-bottom: 8px; border: 1px solid #dfe6ec; border-radius: 12px; background: #f5f7f9; color: #2d3436; font-size: 13px; font-weight: 800; }
     .user-settings-row input { width: 26px; height: 26px; accent-color: #00ADB5; }
     .user-settings-row small { display: block; margin-top: 3px; color: #7f8c8d; font-size: 11px; font-weight: 700; line-height: 1.25; }
+    .settings-users-list { display: grid; gap: 8px; }
+    .settings-user-card { display: grid; grid-template-columns: minmax(0, 1fr) 82px; gap: 8px; align-items: center; padding: 10px; border-radius: 12px; background: #f5f7f9; border: 1px solid #dfe6ec; }
+    .settings-user-card b { display: block; color: #111820; font-size: 13px; font-weight: 900; overflow-wrap: anywhere; }
+    .settings-user-card span { display: block; margin-top: 3px; color: #7f8c8d; font-size: 11px; font-weight: 800; }
+    .settings-user-card button { border: none; border-radius: 9px; padding: 10px 6px; background: #d63031; color: #fff; font-size: 11px; font-weight: 900; cursor: pointer; }
+    .settings-user-empty { padding: 14px; border-radius: 12px; background: #f5f7f9; color: #7f8c8d; font-size: 12px; font-weight: 800; text-align: center; }
+    .hide-exact-due-info .price-cell-exact,
+    .hide-exact-due-info .exact-due-info { display: none !important; }
     .pos-area-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 8px; }
     .pos-area-field label { display: block; margin-bottom: 4px; font-size: 11px; font-weight: 900; color: #4f5b66; text-transform: uppercase; }
     .pos-area-field input { width: 100%; box-sizing: border-box; border: 2px solid #263238; border-radius: 10px; background: #111820; color: #fff; padding: 10px 8px; font-size: 15px; font-weight: 900; outline: none; }
@@ -228,8 +236,13 @@
     .change-result { min-width: 0; }
     .change-big { font-size: 50px; font-weight: 900; color: #55efc4; line-height: 1; }
     
-    .tip-toggle { background: #444; color: #888; border: 2px solid #555; border-radius: 10px; padding: 10px 15px; font-weight: 800; font-size: 11px; cursor: pointer; text-transform: uppercase; }
+    .tip-actions { display: grid; gap: 6px; flex: 0 0 128px; }
+    .tip-toggle { background: #444; color: #888; border: 2px solid #555; border-radius: 10px; padding: 9px 8px; font-weight: 800; font-size: 10px; cursor: pointer; text-transform: uppercase; line-height: 1.12; }
     .tip-toggle.active { background: #d63031; color: white; border-color: #ff7675; }
+    .tip-toggle.manual { background: #111820; color: #55efc4; border-color: #55efc4; }
+    .tip-toggle.manual.active { background: #00ADB5; color: #111820; border-color: #00ADB5; }
+    .tip-toggle:disabled { opacity: 0.48; cursor: default; }
+    .receipt-tip-info { min-height: 14px; margin-top: 4px; color: #00ADB5; font-size: 11px; font-weight: 900; text-align: left; }
 
     .save-btn { width: 100%; padding: 18px; background: #27ae60; color: #fff; border: none; border-radius: 15px; font-size: 20px; font-weight: 800; cursor: pointer; margin-top: 10px; box-shadow: 0 4px 0 #219150; }
     .split-btn { width: 100%; padding: 10px; background: #4a76c5; color: white; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; font-size: 13px; }
@@ -341,9 +354,15 @@
     .week-report-muted { color: #b8c0c4; font-size: 11px; font-weight: 800; margin-top: 8px; }
     .manual-tip-box { width: 340px; background: #fff; border-radius: 18px; padding: 20px; text-align: center; }
     .manual-tip-box h3 { margin: 0 0 12px; }
-    .manual-tip-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 12px; }
+    .manual-tip-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-bottom: 12px; }
     .manual-tip-curr { padding: 10px 6px; border: 2px solid #55efc4; border-radius: 10px; background: #2d3436; color: #fff; font-weight: 900; cursor: pointer; }
     .manual-tip-curr.active { background: #000; color: #55efc4; }
+    .manual-tip-curr:disabled { opacity: 0.65; cursor: default; }
+    .manual-tip-hint { min-height: 16px; margin: -3px 0 8px; color: #636e72; font-size: 12px; font-weight: 800; }
+    .manual-tip-quick-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin: 8px 0 10px; }
+    .manual-tip-quick { border: 2px solid #2d3436; border-radius: 10px; padding: 10px 5px; background: #111820; color: #55efc4; font-size: 12px; font-weight: 900; cursor: pointer; }
+    .manual-tip-quick.active { border-color: #27ae60; background: #27ae60; color: #fff; }
+    .manual-tip-quick:disabled { opacity: 0.45; cursor: default; }
     .manual-tip-cancel { background:none; border:none; color:#666; margin-top:12px; cursor:pointer; font-weight:800; }
 
     @media print {
@@ -830,15 +849,22 @@ body.silent-refresh .trash-item {
 
 <div id="manualTipOverlay">
     <div class="manual-tip-box">
-        <h3>Добавить TIP</h3>
+        <h3 id="manualTipTitle">Добавить TIP</h3>
         <input type="hidden" id="manualTipCurr" value="USD">
         <div class="manual-tip-row">
             <button type="button" class="manual-tip-curr" id="manual-tip-RUB" onclick="setManualTipCurrency('RUB')">₽ RUB</button>
             <button type="button" class="manual-tip-curr active" id="manual-tip-USD" onclick="setManualTipCurrency('USD')">$ USD</button>
             <button type="button" class="manual-tip-curr" id="manual-tip-EUR" onclick="setManualTipCurrency('EUR')">€ EUR</button>
+            <button type="button" class="manual-tip-curr" id="manual-tip-AMD" onclick="setManualTipCurrency('AMD')">֏ AMD</button>
         </div>
-        <input type="number" id="manualTipAmount" placeholder="0" onfocus="this.select()">
-        <button type="button" class="save-btn" onclick="saveManualTip()">СОХРАНИТЬ TIP</button>
+        <div id="manualTipHint" class="manual-tip-hint"></div>
+        <div class="manual-tip-quick-row">
+            <button type="button" class="manual-tip-quick" id="manualTipQuickRUB" onclick="setManualTipQuick('RUB', 50)">50 RUB</button>
+            <button type="button" class="manual-tip-quick" id="manualTipQuickEUR" onclick="setManualTipQuick('EUR', 0.5)">0.5 EUR</button>
+            <button type="button" class="manual-tip-quick" id="manualTipQuickUSD" onclick="setManualTipQuick('USD', 1)">1 USD</button>
+        </div>
+        <input type="number" id="manualTipAmount" placeholder="0" onfocus="this.select()" oninput="updateManualTipQuickButtons()">
+        <button type="button" class="save-btn" onclick="saveManualTip()"><span id="manualTipSaveLabel">СОХРАНИТЬ TIP</span></button>
         <button type="button" class="manual-tip-cancel" onclick="closeManualTip()">Отмена</button>
     </div>
 </div>
@@ -849,6 +875,7 @@ body.silent-refresh .trash-item {
         <div class="user-settings-tabs">
             <button type="button" class="user-settings-tab active" id="userSettingsTabMain" onclick="setUserSettingsPage('main')">Основные</button>
             <button type="button" class="user-settings-tab" id="userSettingsTabPos" onclick="setUserSettingsPage('pos')">Область POS</button>
+            <button type="button" class="user-settings-tab" id="userSettingsTabUsers" onclick="setUserSettingsPage('users')" style="display:none;">Пользователи</button>
         </div>
         <div class="user-settings-page active" id="userSettingsPageMain">
             <label class="user-settings-row">
@@ -862,6 +889,10 @@ body.silent-refresh .trash-item {
             <label class="user-settings-row">
                 <input type="checkbox" id="settingMinimizeAfterSave">
                 <span>Сворачивать после сохранения чека<small>Работает для обычного и раздельного чека.</small></span>
+            </label>
+            <label class="user-settings-row">
+                <input type="checkbox" id="settingShowExactDueInfo">
+                <span>Показывать мелкие строки с округлением<small>Если выключить, строки «без округления» и похожая серая информация будут скрыты.</small></span>
             </label>
         </div>
         <div class="user-settings-page" id="userSettingsPagePos">
@@ -878,6 +909,10 @@ body.silent-refresh .trash-item {
                 <button type="button" onclick="savePosOcrArea()">Сохранить</button>
             </div>
             <div id="posAreaStatus" class="pos-area-status"></div>
+        </div>
+        <div class="user-settings-page" id="userSettingsPageUsers">
+            <div class="user-settings-section-title">Зарегистрированные пользователи</div>
+            <div id="settingsUsersList" class="settings-users-list"></div>
         </div>
         <div class="user-settings-actions">
             <button type="button" class="user-settings-save" onclick="saveUserSettings()">СОХРАНИТЬ</button>
@@ -1000,8 +1035,12 @@ body.silent-refresh .trash-item {
                         <div class="change-result">
                             <span id="resRounded" class="change-big">0</span>
                             <div style="font-size:12px; color:#888; text-align:left;">Сдача/Разница в <span id="targetLabel">USD</span></div>
+                            <div id="manualReceiptTipInfo" class="receipt-tip-info"></div>
                         </div>
-                        <button id="tipToggler" class="tip-toggle" onclick="toggleTipMode()">Остаток на чай</button>
+                        <div class="tip-actions">
+                            <button id="tipToggler" class="tip-toggle" onclick="toggleTipMode()">Остаток на чай</button>
+                            <button id="manualReceiptTipBtn" class="tip-toggle manual" onclick="openManualTip('change')">Вписать TIP</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -1140,7 +1179,8 @@ function normalizeUserSettings(value = {}) {
     return {
         enableF1Toggle: value.enableF1Toggle === undefined ? DEFAULT_USER_SETTINGS.enableF1Toggle : Boolean(value.enableF1Toggle),
         enableF3Import: value.enableF3Import === undefined ? DEFAULT_USER_SETTINGS.enableF3Import : Boolean(value.enableF3Import),
-        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave)
+        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave),
+        showExactDueInfo: value.showExactDueInfo === undefined ? DEFAULT_USER_SETTINGS.showExactDueInfo : Boolean(value.showExactDueInfo)
     };
 }
 
@@ -1153,9 +1193,17 @@ function currentUserSettingsPayload(settings = currentUserSettings) {
     };
 }
 
+function userSettingsKey(payload = {}) {
+    const role = String(payload.role || '').trim() || 'user';
+    const id = String(payload.id || payload.userId || '').trim();
+    const name = String(payload.name || payload.user || '').trim();
+    return `${role}:${id || name || 'default'}`;
+}
+
 async function loadCurrentUserSettings() {
     if (!currentOperator && !currentUserId) {
         currentUserSettings = normalizeUserSettings({});
+        applyExactDueVisibility();
         return currentUserSettings;
     }
     try {
@@ -1168,7 +1216,12 @@ async function loadCurrentUserSettings() {
     } catch {
         currentUserSettings = normalizeUserSettings({});
     }
+    applyExactDueVisibility();
     return currentUserSettings;
+}
+
+function applyExactDueVisibility(settings = currentUserSettings) {
+    document.body?.classList.toggle('hide-exact-due-info', !normalizeUserSettings(settings).showExactDueInfo);
 }
 
 function applyUserSettingsToForm() {
@@ -1176,30 +1229,40 @@ function applyUserSettingsToForm() {
     const f1 = document.getElementById('settingF1Toggle');
     const f3 = document.getElementById('settingF3Import');
     const minimize = document.getElementById('settingMinimizeAfterSave');
+    const exact = document.getElementById('settingShowExactDueInfo');
     if (f1) f1.checked = settings.enableF1Toggle;
     if (f3) f3.checked = settings.enableF3Import;
     if (minimize) minimize.checked = settings.minimizeAfterSave;
+    if (exact) exact.checked = settings.showExactDueInfo;
 }
 
 function collectUserSettingsFromForm() {
     return normalizeUserSettings({
         enableF1Toggle: document.getElementById('settingF1Toggle')?.checked,
         enableF3Import: document.getElementById('settingF3Import')?.checked,
-        minimizeAfterSave: document.getElementById('settingMinimizeAfterSave')?.checked
+        minimizeAfterSave: document.getElementById('settingMinimizeAfterSave')?.checked,
+        showExactDueInfo: document.getElementById('settingShowExactDueInfo')?.checked
     });
 }
 
 function setUserSettingsPage(page = 'main') {
-    const normalized = page === 'pos' ? 'pos' : 'main';
+    const normalized = page === 'users' && currentRole === 'developer'
+        ? 'users'
+        : (page === 'pos' ? 'pos' : 'main');
     document.getElementById('userSettingsTabMain')?.classList.toggle('active', normalized === 'main');
     document.getElementById('userSettingsTabPos')?.classList.toggle('active', normalized === 'pos');
+    document.getElementById('userSettingsTabUsers')?.classList.toggle('active', normalized === 'users');
     document.getElementById('userSettingsPageMain')?.classList.toggle('active', normalized === 'main');
     document.getElementById('userSettingsPagePos')?.classList.toggle('active', normalized === 'pos');
+    document.getElementById('userSettingsPageUsers')?.classList.toggle('active', normalized === 'users');
     if (normalized === 'pos') loadPosOcrSettings();
+    if (normalized === 'users') renderSettingsUsers();
 }
 
 function openUserSettings() {
     applyUserSettingsToForm();
+    const usersTab = document.getElementById('userSettingsTabUsers');
+    if (usersTab) usersTab.style.display = currentRole === 'developer' ? '' : 'none';
     const overlay = document.getElementById('userSettingsOverlay');
     if (overlay) overlay.style.display = 'flex';
     setUserSettingsPage('main');
@@ -1219,10 +1282,71 @@ async function saveUserSettings() {
             return;
         }
         currentUserSettings = normalizeUserSettings(result.settings || settings);
+        applyExactDueVisibility();
         ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
         closeUserSettings();
     } catch (err) {
         await showAppMessage({ title: 'Настройки', message: 'Ошибка сохранения: ' + (err.message || err), okText: 'OK' });
+    }
+}
+
+function settingsUserRows(store = getAuthStore()) {
+    const normalized = normalizeAuthStore(store);
+    const roleTitle = role => role === 'cashier' ? 'Кассир' : 'Админ';
+    const slotNumber = id => String(id || '').split('_').pop();
+    return [
+        ...Object.values(normalized.admins || {}),
+        ...Object.values(normalized.cashiers || {})
+    ].map(account => `
+        <div class="settings-user-card">
+            <div>
+                <b>${escapeHtml(account.name)}</b>
+                <span>${roleTitle(account.role)} ${escapeHtml(slotNumber(account.id))}</span>
+            </div>
+            <button type="button" onclick="deleteSettingsUser('${account.role}', '${escapeHtml(account.id)}')">Удалить</button>
+        </div>
+    `);
+}
+
+async function renderSettingsUsers() {
+    const list = document.getElementById('settingsUsersList');
+    if (!list) return;
+    if (currentRole !== 'developer') {
+        list.innerHTML = '<div class="settings-user-empty">Доступно только разработчику</div>';
+        return;
+    }
+    await refreshAuthStore();
+    const rows = settingsUserRows();
+    list.innerHTML = rows.length
+        ? rows.join('')
+        : '<div class="settings-user-empty">Зарегистрированных пользователей пока нет</div>';
+}
+
+async function deleteSettingsUser(role, id) {
+    if (currentRole !== 'developer') return;
+    await refreshAuthStore();
+    const bucket = role === 'cashier' ? 'cashiers' : 'admins';
+    const account = getAuthStore()[bucket]?.[id];
+    if (!account?.passwordHash) {
+        await renderSettingsUsers();
+        return;
+    }
+    const ok = await showAppConfirm({
+        title: 'Пользователи',
+        message: `Удалить пользователя ${account.name}?`,
+        okText: 'Удалить'
+    });
+    if (!ok) return;
+    try {
+        const result = await ipcRenderer.invoke('delete-auth-account', { role, id, requesterRole: currentRole });
+        if (!result?.ok) {
+            await showAppMessage({ title: 'Пользователи', message: result?.error || 'Не удалось удалить пользователя', okText: 'OK' });
+            return;
+        }
+        authStoreCache = normalizeAuthStore(result.store || {});
+        await renderSettingsUsers();
+    } catch (err) {
+        await showAppMessage({ title: 'Пользователи', message: 'Ошибка удаления: ' + (err.message || err), okText: 'OK' });
     }
 }
 
@@ -1429,6 +1553,7 @@ function itemMatchesSearch(item = {}, query = '') {
 }
 
 function setPayCurrency(curr) {
+    clearReceiptManualTip(false);
     document.getElementById('currType').value = curr;
     document.querySelectorAll('.pay-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `pay-${curr}`));
     document.querySelectorAll('.price-curr-btn').forEach(btn => btn.classList.toggle('active', btn.id === `price-pay-${curr}`));
@@ -1438,6 +1563,7 @@ function setPayCurrency(curr) {
 }
 
 function setChangeCurr(curr) {
+    if (receiptManualTipCurr && receiptManualTipCurr !== curr) clearReceiptManualTip(false);
     changeCurrency = curr;
     document.querySelectorAll('.change-btn').forEach(btn => btn.classList.toggle('active', btn.id === `btn-${curr}`));
     if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = curr;
@@ -1510,7 +1636,13 @@ function formatChangeAmount(value, curr) {
     return formatDueAmount(value, curr);
 }
 
-function calculateChangePreview() {
+function clearReceiptManualTip(shouldUpdate = true) {
+    receiptManualTipAmount = 0;
+    receiptManualTipCurr = null;
+    if (shouldUpdate) calculateChangePreview();
+}
+
+function getChangePreviewState() {
     const priceAMD = parseFloat(document.getElementById('priceAMD').value) || 0;
     const givenVal = parseFloat(document.getElementById('given').value) || 0;
     const payCurr = document.getElementById('currType').value;
@@ -1527,7 +1659,6 @@ function calculateChangePreview() {
     const givenAMD = givenVal * (rates[payCurr] || 0);
     const diffAMD = givenAMD - payRoundAMD;
 
-    // Считаем сдачу во всех валютах
     const changes = {};
     ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
         const changeRate = rates[curr] || 1;
@@ -1538,14 +1669,57 @@ function calculateChangePreview() {
             displayChange = Math.max(0, displayChange);
         }
         changes[curr] = isFinite(displayChange) ? displayChange : 0;
-        const el = document.getElementById(`v-${curr}`);
-        if (el) el.innerText = formatChangeAmount(changes[curr], curr);
     });
 
-    // Показываем выбранную валюту сдачи
-    const selectedChange = changes[changeCurrency] || 0;
-    if (document.getElementById('resRounded')) document.getElementById('resRounded').innerText = formatChangeAmount(selectedChange, changeCurrency);
+    return { priceAMD, givenVal, payCurr, rates, exactInCurr, roundedInCurr, payRoundAMD, givenAMD, diffAMD, changes };
+}
+
+function appliedReceiptTipAmount(selectedChange) {
+    if (isTipMode) return Math.max(0, selectedChange || 0);
+    if (receiptManualTipCurr !== changeCurrency) return 0;
+    const amount = Math.max(0, Number(receiptManualTipAmount) || 0);
+    return Math.min(Math.max(0, selectedChange || 0), amount);
+}
+
+function updateReceiptTipControls(selectedChange, tipAmount = 0) {
+    const hasChange = Number(selectedChange) > 0;
+    const tipBtn = document.getElementById('tipToggler');
+    const manualBtn = document.getElementById('manualReceiptTipBtn');
+    const info = document.getElementById('manualReceiptTipInfo');
+    if (tipBtn) {
+        tipBtn.disabled = !hasChange;
+        tipBtn.classList.toggle('active', isTipMode && hasChange);
+    }
+    if (manualBtn) {
+        manualBtn.disabled = !hasChange;
+        manualBtn.classList.toggle('active', !isTipMode && tipAmount > 0);
+    }
+    if (info) {
+        info.innerText = tipAmount > 0
+            ? `TIP: ${formatChangeAmount(tipAmount, changeCurrency)} ${changeCurrency}`
+            : '';
+    }
+}
+
+function calculateChangePreview() {
+    const state = getChangePreviewState();
+
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(curr => {
+        const el = document.getElementById(`v-${curr}`);
+        if (el) el.innerText = formatChangeAmount(state.changes[curr], curr);
+    });
+
+    const selectedChange = state.changes[changeCurrency] || 0;
+    if (!(selectedChange > 0) && (isTipMode || receiptManualTipAmount > 0)) {
+        isTipMode = false;
+        receiptManualTipAmount = 0;
+        receiptManualTipCurr = null;
+    }
+    const tipAmount = appliedReceiptTipAmount(selectedChange);
+    const remainingChange = Math.max(0, selectedChange - tipAmount);
+    if (document.getElementById('resRounded')) document.getElementById('resRounded').innerText = formatChangeAmount(remainingChange, changeCurrency);
     if (document.getElementById('targetLabel')) document.getElementById('targetLabel').innerText = changeCurrency;
+    updateReceiptTipControls(selectedChange, tipAmount);
 }
 
 function localDataKey(key) {
@@ -2019,6 +2193,66 @@ function createBrowserIpcFallback() {
                 return { ok: true, rates };
             }
 
+            if (channel === 'get-auth-store') {
+                const store = normalizeAuthStore(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'));
+                return { ok: true, store };
+            }
+
+            if (channel === 'save-auth-account') {
+                const role = payload?.role === 'cashier' ? 'cashier' : 'admin';
+                const bucket = role === 'cashier' ? 'cashiers' : 'admins';
+                const id = String(payload?.id || payload?.account?.id || '').trim();
+                const store = normalizeAuthStore(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'));
+                const incoming = normalizeAuthStore({
+                    admins: role === 'admin' ? { [id]: payload?.account || {} } : {},
+                    cashiers: role === 'cashier' ? { [id]: payload?.account || {} } : {}
+                });
+                const account = incoming[bucket][id];
+                if (!id || !account?.passwordHash || !account?.name) return { ok: false, error: 'Недостаточно данных', store };
+                if (store[bucket][id]?.passwordHash && !payload?.overwrite) return { ok: false, error: 'Этот слот уже занят', store };
+                store[bucket][id] = account;
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(store));
+                return { ok: true, store, account };
+            }
+
+            if (channel === 'delete-auth-account') {
+                const role = payload?.role === 'cashier' ? 'cashier' : 'admin';
+                const bucket = role === 'cashier' ? 'cashiers' : 'admins';
+                const id = String(payload?.id || '').trim();
+                const store = normalizeAuthStore(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'));
+                if (!id || !store[bucket][id]?.passwordHash) return { ok: false, error: 'Аккаунт не найден', store };
+                delete store[bucket][id];
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(store));
+                return { ok: true, store, deletedId: id };
+            }
+
+            if (channel === 'merge-auth-store') {
+                const store = normalizeAuthStore(JSON.parse(localStorage.getItem(AUTH_STORAGE_KEY) || '{}'));
+                const incoming = normalizeAuthStore(payload);
+                ['admins', 'cashiers'].forEach(bucket => {
+                    Object.entries(incoming[bucket] || {}).forEach(([id, account]) => {
+                        if (!store[bucket][id]?.passwordHash) store[bucket][id] = account;
+                    });
+                });
+                localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(store));
+                return { ok: true, merged: true, store };
+            }
+
+            if (channel === 'get-user-settings') {
+                const store = JSON.parse(localStorage.getItem(USER_SETTINGS_STORAGE_KEY) || '{}');
+                const key = userSettingsKey(payload || {});
+                return { ok: true, key, settings: normalizeUserSettings(store[key] || {}) };
+            }
+
+            if (channel === 'save-user-settings') {
+                const store = JSON.parse(localStorage.getItem(USER_SETTINGS_STORAGE_KEY) || '{}');
+                const key = userSettingsKey(payload || {});
+                const settings = normalizeUserSettings(payload?.settings || payload || {});
+                store[key] = settings;
+                localStorage.setItem(USER_SETTINGS_STORAGE_KEY, JSON.stringify(store));
+                return { ok: true, key, settings };
+            }
+
             if (channel === 'test-network-connection') {
                 const config = normalizeNetworkConfig(payload);
                 if (config.mode === 'local') return { ok: true, message: 'Локальный режим' };
@@ -2071,7 +2305,7 @@ try {
 const ipcRenderer = electronApi && electronApi.ipcRenderer
     ? electronApi.ipcRenderer
     : createBrowserIpcFallback();
-const DEFAULT_USER_SETTINGS = { enableF1Toggle: true, enableF3Import: true, minimizeAfterSave: true };
+const DEFAULT_USER_SETTINGS = { enableF1Toggle: true, enableF3Import: true, minimizeAfterSave: true, showExactDueInfo: true };
 const TEST_DATA_INVOKE_CHANNELS = new Set([
     'get-history-data',
     'get-trash-data',
@@ -2104,6 +2338,9 @@ let splitPartsCurrency = "AMD";
 let splitPartsChangeCurrency = "USD";
 let splitPartsPayments = [];
 let isSplitPartsTipMode = false;
+let manualTipContext = 'standalone';
+let receiptManualTipAmount = 0;
+let receiptManualTipCurr = null;
 let activeTab = "bills";
 let isTipMode = false;
 let historyCurrencyFilter = "ALL";
@@ -2137,6 +2374,7 @@ const CASHIER_SLOT_COUNT = 4;
 const NETWORK_CONFIG_STORAGE_KEY = 'fx_network_config_v1';
 const CONNECTION_COLLAPSED_STORAGE_KEY = 'fx_connection_panel_collapsed_v1';
 const RATES_STORAGE_KEY = 'fx_rates_settings_v1';
+const USER_SETTINGS_STORAGE_KEY = 'fx_user_settings_v1';
 const UPDATE_RESUME_SESSION_KEY = 'fx_update_resume_session_v1';
 const UPDATE_DISMISSED_KEY = 'fx_update_dismissed_v1';
 const UPDATE_INSTALLED_NOTICE_KEY = 'fx_update_installed_notice_v1';
@@ -3452,6 +3690,7 @@ async function restoreUpdateSessionIfNeeded() {
     sessionStorage.setItem('fx_user_id', currentUserId);
     if (currentTestMode) {
         currentUserSettings = { ...DEFAULT_USER_SETTINGS };
+        applyExactDueVisibility();
     } else {
         await loadCurrentUserSettings();
         ipcRenderer.send('set-current-session-role', { role: currentRole, user: currentOperator, settings: currentUserSettings });
@@ -4450,6 +4689,7 @@ async function logoutToLogin() {
     currentRole = "";
     currentUserId = "";
     currentUserSettings = normalizeUserSettings({});
+    applyExactDueVisibility();
     setTestMode(false);
     sessionStorage.removeItem('fx_operator');
     sessionStorage.removeItem('fx_role');
@@ -4472,6 +4712,7 @@ async function logoutToLogin() {
     historyCurrencyFilter = 'ALL';
     openedShiftId = null;
     isTipMode = false;
+    clearReceiptManualTip(false);
     isSplitTipMode = false;
     isSplitPartsTipMode = false;
     splitPartsPayments = [];
@@ -4529,8 +4770,16 @@ function updateDeveloperToolsVisibility() {
 }
 
 function toggleTipMode() {
+    const state = getChangePreviewState();
+    const selectedChange = state.changes[changeCurrency] || 0;
+    if (!(selectedChange > 0)) {
+        isTipMode = false;
+        calculateChangePreview();
+        return;
+    }
     isTipMode = !isTipMode;
-    document.getElementById('tipToggler').classList.toggle('active', isTipMode);
+    if (isTipMode) clearReceiptManualTip(false);
+    calculateChangePreview();
 }
 
 function closeSplitOverlay() {
@@ -5236,23 +5485,37 @@ async function processSaveInner() {
     const billDate = new Date().toLocaleDateString('ru-RU');
     const billTime = new Date().toLocaleTimeString('ru-RU',{hour:'2-digit',minute:'2-digit'});
 
-    if (isTipMode && changeVal > 0) {
-        tipAmount = changeVal;
+    const availableChange = isShortage ? 0 : Math.max(0, changeVal);
+    const manualTipFromChange = (!isTipMode && receiptManualTipCurr === changeCurrency)
+        ? Math.min(availableChange, Math.max(0, Number(receiptManualTipAmount) || 0))
+        : 0;
+
+    if (isTipMode && availableChange > 0) {
+        tipAmount = availableChange;
         tipCurr = changeCurrency;
-        tipAMD = changeVal * (rates[changeCurrency] || 1);
+        tipAMD = tipAmount * (rates[changeCurrency] || 1);
         tipId = billId + 1;
+        finalChange = 0;
+    } else if (manualTipFromChange > 0) {
+        tipAmount = manualTipFromChange;
+        tipCurr = changeCurrency;
+        tipAMD = tipAmount * (rates[changeCurrency] || 1);
+        tipId = billId + 1;
+        finalChange = Math.max(0, availableChange - tipAmount);
+    }
+
+    if (tipAmount > 0) {
         const tipEntry = {
             id: tipId,
             billId,
             sourceBillId: billId,
             date: billDate,
             time: billTime,
-            val: changeVal, curr: changeCurrency, amd: tipAMD, user: currentOperator
+            val: tipAmount, curr: tipCurr, amd: tipAMD, user: currentOperator
         };
         writeLocalList(DB_TIPS, upsertLocal(readLocalList(DB_TIPS), tipEntry));
         writeLocalList(DB_ALL_TIPS, upsertLocal(readLocalList(DB_ALL_TIPS), tipEntry));
         appSend('save-tip', tipEntry);
-        finalChange = 0;
     }
 
     const returnedChangeAMD = finalChange > 0 ? finalChange * (rates[changeCurrency] || 1) : 0;
@@ -5314,7 +5577,7 @@ function renderBillDetails(i) {
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal}</b></div>`);
         const exactLines = splitExactDueLines(i);
         if (exactLines.length) {
-            lines.push(`<div style="font-size:12px;color:#666;">Без округления: <b>${exactLines.join(' | ')}</b></div>`);
+            lines.push(`<div class="exact-due-info" style="font-size:12px;color:#666;">Без округления: <b>${exactLines.join(' | ')}</b></div>`);
         }
         if (receivedForDisplayAMD) {
             lines.push(`<div style="font-size:11px;color:#666;">Принято в AMD: ${Math.round(receivedForDisplayAMD).toLocaleString()} ֏</div>`);
@@ -5332,10 +5595,10 @@ function renderBillDetails(i) {
         const exactDue = billExactDueInPayCurrency(i);
         const roundedDue = Number(i.shouldPayInPayCurr) || (exactDue !== null ? roundDueInOurFavor(exactDue, i.payCurr) : 0);
         if (roundedDue && i.payCurr) {
-            lines.push(`<div style="font-size:12px;color:#666;">К оплате с округлением: <b>${formatDueAmount(roundedDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
+            lines.push(`<div class="exact-due-info" style="font-size:12px;color:#666;">К оплате с округлением: <b>${formatDueAmount(roundedDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
         }
         if (exactDue !== null && i.payCurr) {
-            lines.push(`<div style="font-size:12px;color:#666;">Без округления: <b>${formatExactAmount(exactDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
+            lines.push(`<div class="exact-due-info" style="font-size:12px;color:#666;">Без округления: <b>${formatExactAmount(exactDue, i.payCurr)} ${i.payCurr || ''}</b></div>`);
         }
         lines.push(`<div style="font-size:12px;">Получено: <b>${i.payVal ?? 0} ${i.payCurr || ''}</b></div>`);
         if (i.changeVal > 0) {
@@ -5456,6 +5719,7 @@ function prepareNewPaymentInput() {
     splitPartsPayments = [];
 
     isTipMode = false;
+    clearReceiptManualTip(false);
     isSplitTipMode = false;
     isSplitPartsTipMode = false;
     document.getElementById('tipToggler')?.classList.remove('active');
@@ -6196,12 +6460,41 @@ async function clearShiftArchiveHistory() {
     }
 }
 
-function openManualTip() {
+async function openManualTip(context = 'standalone') {
+    manualTipContext = context === 'change' ? 'change' : 'standalone';
     const overlay = document.getElementById('manualTipOverlay');
     const input = document.getElementById('manualTipAmount');
+    const title = document.getElementById('manualTipTitle');
+    const hint = document.getElementById('manualTipHint');
+    const saveLabel = document.getElementById('manualTipSaveLabel');
+    const currButtons = ['RUB', 'USD', 'EUR', 'AMD'].map(code => document.getElementById(`manual-tip-${code}`)).filter(Boolean);
+
+    if (manualTipContext === 'change') {
+        const state = getChangePreviewState();
+        const available = state.changes[changeCurrency] || 0;
+        if (!(available > 0)) {
+            await showAppMessage({ title: 'TIP', message: 'Сначала должна быть сдача.', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+        isTipMode = false;
+        setManualTipCurrency(changeCurrency);
+        if (title) title.innerText = 'TIP из сдачи';
+        if (hint) hint.innerText = `Доступно из сдачи: ${formatChangeAmount(available, changeCurrency)} ${changeCurrency}`;
+        if (saveLabel) saveLabel.innerText = 'ПРИМЕНИТЬ TIP';
+        currButtons.forEach(btn => { btn.disabled = true; });
+        if (input) input.value = receiptManualTipCurr === changeCurrency && receiptManualTipAmount > 0 ? String(receiptManualTipAmount) : '';
+    } else {
+        if (title) title.innerText = 'Добавить TIP';
+        if (hint) hint.innerText = '';
+        if (saveLabel) saveLabel.innerText = 'СОХРАНИТЬ TIP';
+        currButtons.forEach(btn => { btn.disabled = false; });
+        if (input) input.value = '';
+        setManualTipCurrency(document.getElementById('manualTipCurr')?.value || 'USD');
+    }
+
+    updateManualTipQuickButtons();
     if (overlay) overlay.style.display = 'flex';
-    if (input) input.value = '';
-    setManualTipCurrency(document.getElementById('manualTipCurr')?.value || 'USD');
     setTimeout(() => {
         input?.focus({ preventScroll: true });
         input?.select();
@@ -6217,9 +6510,70 @@ function closeManualTip() {
 function setManualTipCurrency(curr) {
     const input = document.getElementById('manualTipCurr');
     if (input) input.value = curr;
-    ['RUB', 'USD', 'EUR'].forEach(code => {
+    ['RUB', 'USD', 'EUR', 'AMD'].forEach(code => {
         document.getElementById(`manual-tip-${code}`)?.classList.toggle('active', code === curr);
     });
+    updateManualTipQuickButtons();
+}
+
+function manualTipQuickPresets() {
+    return [
+        { curr: 'RUB', amount: 50, id: 'manualTipQuickRUB' },
+        { curr: 'EUR', amount: 0.5, id: 'manualTipQuickEUR' },
+        { curr: 'USD', amount: 1, id: 'manualTipQuickUSD' }
+    ];
+}
+
+function updateManualTipQuickButtons() {
+    const selectedCurr = document.getElementById('manualTipCurr')?.value || 'USD';
+    const selectedAmount = Number(document.getElementById('manualTipAmount')?.value) || 0;
+    let available = Infinity;
+    if (manualTipContext === 'change') {
+        const state = getChangePreviewState();
+        available = Number(state.changes[changeCurrency] || 0);
+    }
+    manualTipQuickPresets().forEach(preset => {
+        const btn = document.getElementById(preset.id);
+        if (!btn) return;
+        const wrongCurrency = manualTipContext === 'change' && preset.curr !== changeCurrency;
+        const tooLarge = manualTipContext === 'change' && preset.amount > available + 0.000001;
+        btn.disabled = wrongCurrency || tooLarge;
+        btn.classList.toggle('active', selectedCurr === preset.curr && Math.abs(selectedAmount - preset.amount) < 0.000001);
+    });
+}
+
+function setManualTipQuick(curr, amount) {
+    if (manualTipContext === 'change' && curr !== changeCurrency) return;
+    const input = document.getElementById('manualTipAmount');
+    setManualTipCurrency(curr);
+    if (input) {
+        input.value = String(amount);
+        input.focus({ preventScroll: true });
+        input.select();
+    }
+    updateManualTipQuickButtons();
+}
+
+async function applyManualTipFromChange(amount) {
+    const state = getChangePreviewState();
+    const available = state.changes[changeCurrency] || 0;
+    if (!(available > 0)) {
+        await showAppMessage({ title: 'TIP', message: 'Сдачи сейчас нет.', okText: 'OK' });
+        return false;
+    }
+    if (amount > available + 0.000001) {
+        await showAppMessage({
+            title: 'TIP',
+            message: `TIP больше сдачи. Максимум: ${formatChangeAmount(available, changeCurrency)} ${changeCurrency}`,
+            okText: 'OK'
+        });
+        return false;
+    }
+    receiptManualTipAmount = amount;
+    receiptManualTipCurr = changeCurrency;
+    isTipMode = false;
+    calculateChangePreview();
+    return true;
 }
 
 async function saveManualTip() {
@@ -6232,6 +6586,19 @@ async function saveManualTip() {
             amountInput?.focus({ preventScroll: true });
             amountInput?.select();
         }, 0);
+        return;
+    }
+
+    if (manualTipContext === 'change') {
+        const ok = await applyManualTipFromChange(amount);
+        if (!ok) {
+            setTimeout(() => {
+                amountInput?.focus({ preventScroll: true });
+                amountInput?.select();
+            }, 0);
+            return;
+        }
+        closeManualTip();
         return;
     }
 

@@ -43,7 +43,8 @@ const DEFAULT_RATES = { RUB: 3.7, USD: 320, EUR: 360 };
 const DEFAULT_USER_SETTINGS = {
     enableF1Toggle: true,
     enableF3Import: true,
-    minimizeAfterSave: true
+    minimizeAfterSave: true,
+    showExactDueInfo: true
 };
 const DEFAULT_BACKUP_CONFIG = {
     enabled: false,
@@ -209,7 +210,8 @@ function normalizeUserSettings(value = {}) {
     return {
         enableF1Toggle: value.enableF1Toggle === undefined ? DEFAULT_USER_SETTINGS.enableF1Toggle : Boolean(value.enableF1Toggle),
         enableF3Import: value.enableF3Import === undefined ? DEFAULT_USER_SETTINGS.enableF3Import : Boolean(value.enableF3Import),
-        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave)
+        minimizeAfterSave: value.minimizeAfterSave === undefined ? DEFAULT_USER_SETTINGS.minimizeAfterSave : Boolean(value.minimizeAfterSave),
+        showExactDueInfo: value.showExactDueInfo === undefined ? DEFAULT_USER_SETTINGS.showExactDueInfo : Boolean(value.showExactDueInfo)
     };
 }
 
