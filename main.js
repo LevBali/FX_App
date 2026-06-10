@@ -2243,6 +2243,24 @@ function clearWeekShiftArchive(payload = {}) {
     };
 }
 
+function deleteSelectedShifts(payload = {}) {
+    if (payload.role !== 'developer' && payload.role !== 'admin') {
+        return { ok: false, error: 'Удаление смен доступно только администратору или разработчику' };
+    }
+
+    const ids = new Set((Array.isArray(payload.ids) ? payload.ids : []).map(String));
+    if (!ids.size) return { ok: false, error: 'Не выбраны смены' };
+
+    const before = shiftArchiveItems();
+    const after = before.filter(shift => !ids.has(String(shift.id)));
+    saveShiftArchiveItems(after);
+    return {
+        ok: true,
+        removed: before.length - after.length,
+        ids: Array.from(ids)
+    };
+}
+
 function clearShiftArchive(payload = {}) {
     if (payload.role !== 'developer' && payload.role !== 'admin') {
         return { ok: false, error: 'Очистка смен доступна только администратору или разработчику' };
@@ -2626,6 +2644,8 @@ async function handleLocalChannel(channel, payload) {
             return markDataChangedForBackup(clearCommonHistory(payload?.user), 'clear-common-history', 1000);
         case 'get-shift-archive':
             return shiftArchiveItems();
+        case 'delete-shifts':
+            return markDataChangedForBackup(deleteSelectedShifts(payload), 'delete-shifts', 1000);
         case 'clear-week-history':
             return markDataChangedForBackup(clearWeekShiftArchive(payload), 'clear-week-history', 1000);
         case 'clear-shift-archive':
@@ -3670,6 +3690,15 @@ ipcMain.handle('get-shift-archive', async () => {
     } catch (err) {
         console.error("Ошибка загрузки архива смен:", err);
         return [];
+    }
+});
+
+ipcMain.handle('delete-shifts', async (event, payload) => {
+    try {
+        return await handleIpcChannel('delete-shifts', payload);
+    } catch (err) {
+        console.error("Ошибка удаления выбранных смен:", err);
+        return { ok: false, error: err.message };
     }
 });
 

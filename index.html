@@ -297,6 +297,9 @@
     .filter-btn { border: 2px solid #2d3436; background: #2d3436; color: #fff; border-radius: 8px; padding: 7px 3px; font-size: 11px; font-weight: 900; cursor: pointer; }
     .filter-btn.active { background: #000; border-color: #55efc4; color: #55efc4; }
     .shift-card { background: #f8f9fa; border-left: 5px solid #2d3436; border-radius: 10px; padding: 10px; margin-bottom: 8px; font-size: 12px; }
+    .shift-card.selected { background: #e8f8f1; border-left-color: #27ae60; box-shadow: inset 0 0 0 2px rgba(39,174,96,0.2); }
+    .shift-card-head { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 8px; align-items: center; }
+    .shift-select-check { width: 23px; height: 23px; margin: 0; accent-color: #27ae60; cursor: pointer; }
     .shift-card-title { display: flex; justify-content: space-between; gap: 8px; font-weight: 900; cursor: pointer; }
     .shift-card-title::after { content: "ОТКРЫТЬ"; flex: 0 0 auto; align-self: center; padding: 4px 7px; border-radius: 7px; background: #27ae60; color: #ffffff; font-size: 9px; font-weight: 900; }
     .shift-card-summary { margin-top: 7px; display: grid; gap: 3px; color: #2d3436; }
@@ -345,6 +348,12 @@
     .archive-pager span { text-align: center; color: #dce8ec; font-size: 11px; font-weight: 900; }
     .archive-print-note { margin-top: 8px; color: #8fa2aa; font-size: 10px; font-weight: 800; text-align: center; }
     .week-clear-btn { width: 100%; border: none; border-radius: 10px; background: #d63031; color: #fff; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
+    .shift-selection-tools { display: none; grid-template-columns: 110px minmax(0, 1fr) 160px; align-items: center; gap: 7px; margin-bottom: 8px; padding: 7px; border-radius: 10px; background: #111820; }
+    .shift-selection-tools.active { display: grid; }
+    .shift-selection-tools button { border: none; border-radius: 8px; padding: 9px 6px; background: #263238; color: #55efc4; font-size: 10px; font-weight: 900; cursor: pointer; }
+    .shift-selection-tools button.danger { background: #d63031; color: #fff; }
+    .shift-selection-tools button:disabled { opacity: 0.45; cursor: default; }
+    .shift-selection-count { color: #dce8ec; font-size: 11px; font-weight: 900; text-align: center; }
     .week-print-btn { width: 100%; border: none; border-radius: 10px; background: #00ADB5; color: #111820; padding: 10px; font-size: 12px; font-weight: 900; cursor: pointer; margin-bottom: 8px; display: none; }
     .week-report-box { background: #2d3436; color: #fff; border-radius: 12px; padding: 12px; margin-top: 12px; font-size: 12px; }
     #week-view .week-report-box { margin-top: 0; max-height: clamp(260px, calc(100vh - 330px), 620px); overflow-y: auto; }
@@ -1089,7 +1098,11 @@ body.silent-refresh .trash-item {
                 <div id="weeklyShiftReport" class="week-report-box"></div>
             </div>
             <div id="shift-view" style="display: none;">
-                <button type="button" id="shiftWeekClearBtn" class="week-clear-btn" onclick="clearShiftArchiveHistory()">ОЧИСТИТЬ СМЕНЫ</button>
+                <div id="shiftSelectionTools" class="shift-selection-tools">
+                    <button type="button" id="shiftSelectAllBtn" onclick="toggleSelectAllVisibleShifts()">ВЫБРАТЬ ВСЕ</button>
+                    <span id="shiftSelectionCount" class="shift-selection-count">Выбрано: 0</span>
+                    <button type="button" id="shiftDeleteSelectedBtn" class="danger" onclick="deleteSelectedShifts()" disabled>УДАЛИТЬ ВЫБРАННЫЕ</button>
+                </div>
                 <div id="shiftArchiveList" class="history-list"></div>
             </div>
         </div>
@@ -2143,6 +2156,18 @@ function createBrowserIpcFallback() {
                 return readLocalList(DB_SHIFT_ARCHIVE);
             }
 
+            if (channel === 'delete-shifts') {
+                if (payload?.role !== 'developer' && payload?.role !== 'admin') {
+                    return { ok: false, error: 'Доступно только администратору или разработчику' };
+                }
+                const ids = new Set((Array.isArray(payload?.ids) ? payload.ids : []).map(String));
+                if (!ids.size) return { ok: false, error: 'Не выбраны смены' };
+                const before = readLocalList(DB_SHIFT_ARCHIVE);
+                const after = before.filter(shift => !ids.has(String(shift.id)));
+                writeLocalList(DB_SHIFT_ARCHIVE, after);
+                return { ok: true, removed: before.length - after.length };
+            }
+
             if (channel === 'clear-week-history') {
                 if (payload?.role !== 'developer' && payload?.role !== 'admin') return { ok: false, error: 'Доступно только администратору или разработчику' };
                 const weekKey = payload?.weekKey || weekKeyForDate();
@@ -2320,6 +2345,7 @@ const TEST_DATA_INVOKE_CHANNELS = new Set([
     'clear-developer-history',
     'clear-common-history',
     'get-shift-archive',
+    'delete-shifts',
     'clear-week-history',
     'clear-shift-archive'
 ]);
@@ -2345,6 +2371,8 @@ let activeTab = "bills";
 let isTipMode = false;
 let historyCurrencyFilter = "ALL";
 let openedShiftId = null;
+let selectedShiftIds = new Set();
+let visibleShiftArchiveIds = [];
 let shiftPrintMode = "shift";
 let lastWeeklyPrintShifts = [];
 let lastArchivePrintShift = null;
@@ -4745,7 +4773,7 @@ function updateDeveloperToolsVisibility() {
     const closeShiftBtn = document.getElementById('closeShiftOpenBtn');
     const weekClearBtn = document.getElementById('weekClearBtn');
     const weekPrintBtn = document.getElementById('weekPrintBtn');
-    const shiftWeekClearBtn = document.getElementById('shiftWeekClearBtn');
+    const shiftSelectionTools = document.getElementById('shiftSelectionTools');
     const emergencyCloseBtn = document.getElementById('emergencyCloseBtn');
     const tabsBox = document.querySelector('.tabs');
     if (cleanBtn) {
@@ -4756,7 +4784,7 @@ function updateDeveloperToolsVisibility() {
     if (closeShiftBtn) closeShiftBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekClearBtn) weekClearBtn.style.display = canManageShift ? 'block' : 'none';
     if (weekPrintBtn) weekPrintBtn.style.display = canManageShift ? 'block' : 'none';
-    if (shiftWeekClearBtn) shiftWeekClearBtn.style.display = canManageShift ? 'block' : 'none';
+    if (shiftSelectionTools) shiftSelectionTools.classList.toggle('active', canManageShift);
     if (emergencyCloseBtn) emergencyCloseBtn.style.display = canManageShift && !currentTestMode ? 'inline-flex' : 'none';
     if (tabsBox) tabsBox.style.gridTemplateColumns = canManageShift
         ? 'repeat(6, minmax(0, 1fr))'
@@ -6340,12 +6368,89 @@ async function openArchiveShiftWindow(id) {
     if (overlay) overlay.style.display = 'flex';
 }
 
+function updateShiftSelectionTools() {
+    const canDelete = currentRole === 'admin' || currentRole === 'developer';
+    const tools = document.getElementById('shiftSelectionTools');
+    const count = document.getElementById('shiftSelectionCount');
+    const deleteBtn = document.getElementById('shiftDeleteSelectedBtn');
+    const selectAllBtn = document.getElementById('shiftSelectAllBtn');
+    const selectedCount = selectedShiftIds.size;
+    const allVisibleSelected = visibleShiftArchiveIds.length > 0
+        && visibleShiftArchiveIds.every(id => selectedShiftIds.has(String(id)));
+
+    tools?.classList.toggle('active', canDelete);
+    if (count) count.innerText = `Выбрано: ${selectedCount}`;
+    if (deleteBtn) deleteBtn.disabled = !canDelete || selectedCount === 0;
+    if (selectAllBtn) {
+        selectAllBtn.disabled = !canDelete || visibleShiftArchiveIds.length === 0;
+        selectAllBtn.innerText = allVisibleSelected ? 'СНЯТЬ ВСЕ' : 'ВЫБРАТЬ ВСЕ';
+    }
+}
+
+function toggleShiftSelection(id, checked, checkbox) {
+    const key = String(id);
+    if (checked) selectedShiftIds.add(key);
+    else selectedShiftIds.delete(key);
+    checkbox?.closest('.shift-card')?.classList.toggle('selected', Boolean(checked));
+    updateShiftSelectionTools();
+}
+
+function toggleSelectAllVisibleShifts() {
+    const allSelected = visibleShiftArchiveIds.length > 0
+        && visibleShiftArchiveIds.every(id => selectedShiftIds.has(String(id)));
+    visibleShiftArchiveIds.forEach(id => {
+        const key = String(id);
+        if (allSelected) selectedShiftIds.delete(key);
+        else selectedShiftIds.add(key);
+    });
+    renderShiftArchive();
+}
+
+async function deleteSelectedShifts() {
+    if (currentRole !== 'admin' && currentRole !== 'developer') return;
+    const ids = Array.from(selectedShiftIds);
+    if (!ids.length) return;
+    const ok = await showAppConfirm({
+        title: 'Смены',
+        message: `Удалить выбранные смены (${ids.length})? Остальные смены останутся в архиве.`,
+        okText: 'Удалить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await appInvoke('delete-shifts', {
+            ids,
+            user: currentOperator,
+            role: currentRole
+        });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Смены', message: result?.error || 'Не удалось удалить выбранные смены', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+        const selected = new Set(ids.map(String));
+        writeLocalList(DB_SHIFT_ARCHIVE, readLocalList(DB_SHIFT_ARCHIVE).filter(shift => !selected.has(String(shift.id))));
+        selectedShiftIds.clear();
+        openedShiftId = null;
+        await renderShiftArchive();
+        recoverAmountInput(false);
+    } catch (err) {
+        await showAppMessage({ title: 'Смены', message: 'Ошибка удаления смен: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
+}
+
 async function renderShiftArchive() {
     const list = document.getElementById('shiftArchiveList');
     if (!list) return;
 
     const reportShifts = await loadShiftArchiveForReports();
     renderWeeklyShiftReport(reportShifts);
+    const archiveIds = new Set(reportShifts.map(shift => String(shift.id)));
+    selectedShiftIds = new Set(Array.from(selectedShiftIds).filter(id => archiveIds.has(String(id))));
 
     const query = document.getElementById('historySearch')?.value.toLowerCase() || "";
     shifts = reportShifts
@@ -6355,6 +6460,8 @@ async function renderShiftArchive() {
             || String(shift.time || '').toLowerCase().includes(query)
             || String(shift.users || shift.operator || '').toLowerCase().includes(query))
         .filter(shiftUsesCurrency);
+    visibleShiftArchiveIds = shifts.map(shift => String(shift.id));
+    updateShiftSelectionTools();
 
     if (!shifts.length) {
         list.innerHTML = `<div style="padding: 12px; color: #666;">Архив смен пуст</div>`;
@@ -6379,11 +6486,15 @@ async function renderShiftArchive() {
         const bills = Array.isArray(shift.bills) ? shift.bills : [];
         const tips = Array.isArray(shift.tips) ? shift.tips : [];
         const trash = Array.isArray(shift.trash) ? shift.trash : [];
+        const selected = selectedShiftIds.has(String(shift.id));
         return `
-            <div class="shift-card">
-                <div class="shift-card-title" onclick="openArchiveShiftWindow(${Number(shift.id)})">
-                    <span>${escapeHtml(shift.date || '')} ${escapeHtml(shift.time || '')}</span>
-                    <span>${escapeHtml(peopleLabel || shift.operator || '')}</span>
+            <div class="shift-card ${selected ? 'selected' : ''}">
+                <div class="shift-card-head">
+                    <input type="checkbox" class="shift-select-check" aria-label="Выбрать смену" ${selected ? 'checked' : ''} onclick="event.stopPropagation()" onchange="toggleShiftSelection('${escapeHtml(shift.id)}', this.checked, this)">
+                    <div class="shift-card-title" onclick="openArchiveShiftWindow(${Number(shift.id)})">
+                        <span>${escapeHtml(shift.date || '')} ${escapeHtml(shift.time || '')}</span>
+                        <span>${escapeHtml(peopleLabel || shift.operator || '')}</span>
+                    </div>
                 </div>
                 <div class="shift-card-summary">
                     ${closedByLabel ? `<div>Закрыл: <b>${escapeHtml(closedByLabel)}</b></div>` : ''}
