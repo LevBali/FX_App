@@ -2102,7 +2102,8 @@ function historyClearBeforeId() {
 }
 
 function setHistoryClearBeforeId(clearBeforeId = Date.now()) {
-    const value = Number(clearBeforeId) || Date.now();
+    const numericValue = Number(clearBeforeId);
+    const value = Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : Date.now();
     writeJson(historyClearMarkerPath, {
         clearedAt: new Date().toISOString(),
         clearBeforeId: value
@@ -2271,6 +2272,111 @@ function clearShiftArchive(payload = {}) {
     return {
         ok: true,
         removed: before.length
+    };
+}
+
+function restoredActiveShiftItem(item, shiftId, restoredAt) {
+    const restored = {
+        ...item,
+        restoredFromShiftId: shiftId,
+        restoredShiftAt: restoredAt
+    };
+    delete restored.status;
+    delete restored.deletedAt;
+    return restored;
+}
+
+function restoredTrashShiftItem(item, shiftId, restoredAt) {
+    return {
+        ...item,
+        restoredFromShiftId: shiftId,
+        restoredShiftAt: restoredAt
+    };
+}
+
+function lowerHistoryMarkerForRestoredBills(bills = []) {
+    const ids = bills
+        .map(item => Number(item?.id))
+        .filter(id => Number.isFinite(id) && id > 0);
+    if (!ids.length) return historyClearBeforeId();
+
+    const currentMarker = historyClearBeforeId();
+    const restoredMinId = Math.min(...ids);
+    if (currentMarker >= restoredMinId) {
+        return setHistoryClearBeforeId(Math.max(0, restoredMinId - 1));
+    }
+    return currentMarker;
+}
+
+function rewriteActiveStoresForRestore(bills, tips, trash) {
+    const activeBills = sortNewestFirst(Array.isArray(bills) ? bills : []);
+    const activeTips = sortNewestFirst(Array.isArray(tips) ? tips : []);
+    const activeTrash = sortNewestFirst(Array.isArray(trash) ? trash : []);
+    const activeSplits = activeBills.filter(item => item?.isSplit);
+
+    writeJson(dbPath, activeBills);
+    writeJson(trashPath, activeTrash);
+    writeJson(splitPath, activeSplits);
+    writeItemsByUserToFiles(activeBills, '_bills.json');
+    writeItemsByUserToFiles(activeSplits, '_splits.json');
+    writeItemsByUserToFiles(activeTips, '_tips.json');
+    if (sqliteReady) dbReplaceItems('tips', activeTips);
+
+    return {
+        bills: activeBills.length,
+        tips: activeTips.length,
+        trash: activeTrash.length,
+        splits: activeSplits.length
+    };
+}
+
+function restoreArchivedShift(payload = {}) {
+    if (payload.role !== 'developer' && payload.role !== 'admin') {
+        return { ok: false, error: 'Восстановление смены доступно только администратору или разработчику' };
+    }
+
+    const targetId = String(payload.id || '').trim();
+    if (!targetId) return { ok: false, error: 'Не выбрана смена' };
+
+    const archive = shiftArchiveItems();
+    const shift = archive.find(item => String(item.id) === targetId);
+    if (!shift) return { ok: false, error: 'Смена не найдена в архиве' };
+
+    const restoredAt = new Date().toISOString();
+    const restoredBills = (Array.isArray(shift.bills) ? shift.bills : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredActiveShiftItem(item, shift.id, restoredAt));
+    const restoredTips = (Array.isArray(shift.tips) ? shift.tips : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredActiveShiftItem(item, shift.id, restoredAt));
+    const restoredTrash = (Array.isArray(shift.trash) ? shift.trash : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredTrashShiftItem(item, shift.id, restoredAt));
+
+    const activeBills = mergeOperatorBillsIntoHistory().filter(item => !isDeletedOrClosed(item));
+    const activeTips = collectAllTipsForBackup().filter(item => !isDeletedOrClosed(item));
+    const activeTrash = readJson(trashPath);
+
+    const mergedBills = mergeItemsById(activeBills, restoredBills);
+    const mergedTips = mergeItemsById(activeTips, restoredTips);
+    const mergedTrash = mergeItemsById(activeTrash, restoredTrash);
+    const marker = lowerHistoryMarkerForRestoredBills(restoredBills);
+    const counts = rewriteActiveStoresForRestore(mergedBills, mergedTips, mergedTrash);
+
+    saveShiftArchiveItems(archive.filter(item => String(item.id) !== targetId));
+    fs.appendFileSync(logPath, `[SHIFT RESTORED] ${new Date().toLocaleTimeString('ru-RU')} - shift ${targetId}: bills ${restoredBills.length}, tips ${restoredTips.length}, trash ${restoredTrash.length}\n`);
+
+    return {
+        ok: true,
+        shift,
+        restored: {
+            bills: restoredBills.length,
+            tips: restoredTips.length,
+            trash: restoredTrash.length,
+            splits: restoredBills.filter(item => item?.isSplit).length
+        },
+        counts,
+        historyClearBeforeId: marker
     };
 }
 
@@ -2646,6 +2752,8 @@ async function handleLocalChannel(channel, payload) {
             return shiftArchiveItems();
         case 'delete-shifts':
             return markDataChangedForBackup(deleteSelectedShifts(payload), 'delete-shifts', 1000);
+        case 'restore-shift':
+            return markDataChangedForBackup(restoreArchivedShift(payload), 'restore-shift', 1000);
         case 'clear-week-history':
             return markDataChangedForBackup(clearWeekShiftArchive(payload), 'clear-week-history', 1000);
         case 'clear-shift-archive':
@@ -3698,6 +3806,15 @@ ipcMain.handle('delete-shifts', async (event, payload) => {
         return await handleIpcChannel('delete-shifts', payload);
     } catch (err) {
         console.error("Ошибка удаления выбранных смен:", err);
+        return { ok: false, error: err.message };
+    }
+});
+
+ipcMain.handle('restore-shift', async (event, payload) => {
+    try {
+        return await handleIpcChannel('restore-shift', payload);
+    } catch (err) {
+        console.error("Ошибка восстановления смены:", err);
         return { ok: false, error: err.message };
     }
 });

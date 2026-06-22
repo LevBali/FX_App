@@ -287,9 +287,10 @@
     .shift-report .row b { white-space: nowrap; font-weight: 900; }
     .shift-report .muted { color: #222; font-size: 11px; font-weight: 700; }
     .shift-report .total { font-size: 14px; font-weight: 900; }
-    .shift-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 14px; }
+    .shift-actions { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px; margin-top: 14px; }
     .shift-action-btn { border: none; border-radius: 10px; padding: 12px 8px; color: #fff; font-size: 13px; font-weight: 900; cursor: pointer; }
     .shift-print-btn { background: #4a76c5; }
+    .shift-restore-btn { background: #27ae60; }
     .shift-danger-btn { background: #d63031; }
     .history-tools { display: grid; gap: 8px; margin: 0 0 10px; }
     .currency-filter-row { display: none; grid-template-columns: repeat(5, 1fr); gap: 5px; }
@@ -937,6 +938,7 @@ body.silent-refresh .trash-item {
         <div class="shift-actions">
             <button type="button" class="shift-action-btn shift-print-btn" onclick="printShiftReport()">ПРИНТ</button>
             <button type="button" id="shiftShortPrintBtn" class="shift-action-btn shift-print-btn" onclick="printShortShiftReport()">КОРОТКО</button>
+            <button type="button" id="shiftRestoreBtn" class="shift-action-btn shift-restore-btn" onclick="restoreArchiveShift()" style="display:none;">ВОССТАНОВИТЬ</button>
             <button type="button" id="shiftFinishBtn" class="shift-action-btn shift-danger-btn" onclick="finishShift()">ЗАКРЫТЬ</button>
         </div>
     </div>
@@ -2168,6 +2170,27 @@ function createBrowserIpcFallback() {
                 return { ok: true, removed: before.length - after.length };
             }
 
+            if (channel === 'restore-shift') {
+                if (payload?.role !== 'developer' && payload?.role !== 'admin') {
+                    return { ok: false, error: 'Доступно только администратору или разработчику' };
+                }
+                const targetId = String(payload?.id || '').trim();
+                const archive = readLocalList(DB_SHIFT_ARCHIVE);
+                const shift = archive.find(item => String(item.id) === targetId);
+                if (!shift) return { ok: false, error: 'Смена не найдена' };
+                applyRestoredShiftLocalState(shift);
+                writeLocalList(DB_SHIFT_ARCHIVE, archive.filter(item => String(item.id) !== targetId));
+                return {
+                    ok: true,
+                    shift,
+                    restored: {
+                        bills: Array.isArray(shift.bills) ? shift.bills.length : 0,
+                        tips: Array.isArray(shift.tips) ? shift.tips.length : 0,
+                        trash: Array.isArray(shift.trash) ? shift.trash.length : 0
+                    }
+                };
+            }
+
             if (channel === 'clear-week-history') {
                 if (payload?.role !== 'developer' && payload?.role !== 'admin') return { ok: false, error: 'Доступно только администратору или разработчику' };
                 const weekKey = payload?.weekKey || weekKeyForDate();
@@ -2346,6 +2369,7 @@ const TEST_DATA_INVOKE_CHANNELS = new Set([
     'clear-common-history',
     'get-shift-archive',
     'delete-shifts',
+    'restore-shift',
     'clear-week-history',
     'clear-shift-archive'
 ]);
@@ -6081,6 +6105,11 @@ function renderWeeklyPrintReport(shifts) {
     `;
 }
 
+function setShiftRestoreActionVisible(visible) {
+    const restoreBtn = document.getElementById('shiftRestoreBtn');
+    if (restoreBtn) restoreBtn.style.display = visible ? '' : 'none';
+}
+
 async function openWeeklyReportPrint() {
     if (currentRole !== 'admin' && currentRole !== 'developer') {
         recoverAmountInput(false);
@@ -6092,6 +6121,7 @@ async function openWeeklyReportPrint() {
     document.querySelector('#shiftOverlay .shift-box')?.classList.remove('archive-shift-box');
     const finishBtn = document.getElementById('shiftFinishBtn');
     if (finishBtn) finishBtn.style.display = 'none';
+    setShiftRestoreActionVisible(false);
     const overlay = document.getElementById('shiftOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
@@ -6364,6 +6394,7 @@ async function openArchiveShiftWindow(id) {
     document.querySelector('#shiftOverlay .shift-box')?.classList.add('archive-shift-box');
     const finishBtn = document.getElementById('shiftFinishBtn');
     if (finishBtn) finishBtn.style.display = 'none';
+    setShiftRestoreActionVisible(currentRole === 'admin' || currentRole === 'developer');
     const overlay = document.getElementById('shiftOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
@@ -7126,6 +7157,7 @@ function openShiftReport() {
     document.querySelector('#shiftOverlay .shift-box')?.classList.remove('archive-shift-box');
     const finishBtn = document.getElementById('shiftFinishBtn');
     if (finishBtn) finishBtn.style.display = '';
+    setShiftRestoreActionVisible(false);
     const overlay = document.getElementById('shiftOverlay');
     if (overlay) overlay.style.display = 'flex';
 }
@@ -7136,6 +7168,7 @@ function closeShiftOverlay() {
     document.querySelector('#shiftOverlay .shift-box')?.classList.remove('archive-shift-box');
     const finishBtn = document.getElementById('shiftFinishBtn');
     if (finishBtn) finishBtn.style.display = '';
+    setShiftRestoreActionVisible(false);
     recoverAmountInput(false);
 }
 
@@ -7183,6 +7216,128 @@ async function printShortShiftReport() {
         if (shiftPrintMode === "archive" && lastArchivePrintShift) renderArchiveShiftReport(lastArchivePrintShift);
         recoverAmountInput(false);
     }, 100);
+}
+
+function restoredActiveShiftLocalItem(item = {}, shiftId = '') {
+    const restored = {
+        ...item,
+        restoredFromShiftId: shiftId,
+        restoredShiftAt: new Date().toISOString()
+    };
+    delete restored.status;
+    delete restored.deletedAt;
+    return restored;
+}
+
+function restoredTrashShiftLocalItem(item = {}, shiftId = '') {
+    return {
+        ...item,
+        restoredFromShiftId: shiftId,
+        restoredShiftAt: new Date().toISOString()
+    };
+}
+
+function lowerLocalHistoryMarkerForRestoredBills(bills = []) {
+    const ids = bills
+        .map(item => Number(item?.id))
+        .filter(id => Number.isFinite(id) && id > 0);
+    if (!ids.length) return;
+    const currentMarker = Number(readLocalValue(DB_HISTORY_CLEAR_BEFORE, '0') || '0');
+    const minId = Math.min(...ids);
+    if (currentMarker >= minId) {
+        writeLocalValue(DB_HISTORY_CLEAR_BEFORE, Math.max(0, minId - 1));
+    }
+}
+
+function applyRestoredShiftLocalState(shift = {}) {
+    const restoredBills = (Array.isArray(shift.bills) ? shift.bills : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredActiveShiftLocalItem(item, shift.id));
+    const restoredTips = (Array.isArray(shift.tips) ? shift.tips : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredActiveShiftLocalItem(item, shift.id));
+    const restoredTrash = (Array.isArray(shift.trash) ? shift.trash : [])
+        .filter(item => item && typeof item === 'object')
+        .map(item => restoredTrashShiftLocalItem(item, shift.id));
+
+    let allBills = readLocalList(DB_BILLS).reduce((list, item) => upsertLocal(list, item), readLocalList(DB_ALL_BILLS));
+    restoredBills.forEach(item => { allBills = upsertLocal(allBills, item); });
+    writeLocalList(DB_ALL_BILLS, allBills);
+    writeLocalList(DB_BILLS, personalBillsFrom(allBills));
+
+    let allTips = readLocalList(DB_TIPS).reduce((list, item) => upsertLocal(list, item), readLocalList(DB_ALL_TIPS));
+    restoredTips.forEach(item => { allTips = upsertLocal(allTips, item); });
+    writeLocalList(DB_ALL_TIPS, allTips);
+    writeLocalList(DB_TIPS, personalTipsFrom(allTips));
+
+    let allTrash = readLocalList(DB_TRASH).reduce((list, item) => upsertLocal(list, item), readLocalList(DB_ALL_TRASH));
+    restoredTrash.forEach(item => { allTrash = upsertLocal(allTrash, item); });
+    writeLocalList(DB_ALL_TRASH, allTrash);
+    writeLocalList(DB_TRASH, personalTrashFrom(allTrash));
+
+    let splits = readLocalList(DB_SPLITS);
+    restoredBills.filter(item => item?.isSplit).forEach(item => { splits = upsertLocal(splits, item); });
+    writeLocalList(DB_SPLITS, splits);
+    lowerLocalHistoryMarkerForRestoredBills(restoredBills);
+}
+
+async function restoreArchiveShift() {
+    if (currentRole !== 'admin' && currentRole !== 'developer') return;
+    const shift = lastArchivePrintShift;
+    if (!shift?.id) return;
+
+    const ok = await showAppConfirm({
+        title: 'Смены',
+        message: `Восстановить закрытую смену ${shift.date || ''} ${shift.time || ''}? Чеки и TIP вернутся в активную смену, а запись исчезнет из архива.`,
+        okText: 'Восстановить'
+    });
+    if (!ok) {
+        recoverAmountInput(false);
+        return;
+    }
+
+    try {
+        const result = await appInvoke('restore-shift', {
+            id: shift.id,
+            user: currentOperator,
+            role: currentRole
+        });
+        if (!result || result.ok === false) {
+            await showAppMessage({ title: 'Смены', message: result?.error || 'Не удалось восстановить смену', okText: 'OK' });
+            recoverAmountInput(false);
+            return;
+        }
+
+        const restoredShift = result.shift || shift;
+        applyRestoredShiftLocalState(restoredShift);
+        writeLocalList(DB_SHIFT_ARCHIVE, readLocalList(DB_SHIFT_ARCHIVE).filter(item => String(item.id) !== String(restoredShift.id)));
+        selectedShiftIds.delete(String(restoredShift.id));
+        openedShiftId = null;
+        lastArchivePrintShift = null;
+
+        closeShiftOverlay();
+        await syncBillsFromDisk();
+        activeTab = 'bills';
+        document.querySelectorAll('.tab').forEach((tab, index) => tab.classList.toggle('active', index === 0));
+        const historySearch = document.getElementById('historySearch');
+        if (historySearch) historySearch.value = '';
+        const historyView = document.getElementById('history-view');
+        const trashView = document.getElementById('trash-view');
+        const weekView = document.getElementById('week-view');
+        const shiftView = document.getElementById('shift-view');
+        if (historyView) historyView.style.display = 'block';
+        if (trashView) trashView.style.display = 'none';
+        if (weekView) weekView.style.display = 'none';
+        if (shiftView) shiftView.style.display = 'none';
+        await renderHistory();
+        updateTotals();
+        prepareNewPaymentInput();
+        startAutoSync();
+        await showAppMessage({ title: 'Смены', message: 'Смена восстановлена и снова участвует в расчете.', okText: 'OK' });
+    } catch (err) {
+        await showAppMessage({ title: 'Смены', message: 'Ошибка восстановления смены: ' + (err.message || err), okText: 'OK' });
+        recoverAmountInput(false);
+    }
 }
 
 function applyClosedShiftLocalState(user) {
