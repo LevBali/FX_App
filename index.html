@@ -304,6 +304,9 @@
     .shift-card-title { display: flex; justify-content: space-between; gap: 8px; font-weight: 900; cursor: pointer; }
     .shift-card-title::after { content: "ОТКРЫТЬ"; flex: 0 0 auto; align-self: center; padding: 4px 7px; border-radius: 7px; background: #27ae60; color: #ffffff; font-size: 9px; font-weight: 900; }
     .shift-card-summary { margin-top: 7px; display: grid; gap: 3px; color: #2d3436; }
+    .shift-card-actions { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; margin-top: 9px; }
+    .shift-card-restore-btn { border: none; border-radius: 8px; padding: 10px 8px; background: #27ae60; color: #ffffff; font-size: 12px; font-weight: 900; cursor: pointer; box-shadow: 0 2px 0 #1f8d4e; }
+    .shift-card-restore-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 #1f8d4e; }
     .shift-card-details { display: none; margin-top: 8px; border-top: 1px dashed #bbb; padding-top: 8px; }
     .shift-card.open .shift-card-details { display: block; }
     .archive-shift-report { width: 100%; color: #eef4f7; background: #111820; font-family: 'Segoe UI', sans-serif; font-size: 12px; font-weight: 800; line-height: 1.35; }
@@ -6518,6 +6521,7 @@ async function renderShiftArchive() {
         const tips = Array.isArray(shift.tips) ? shift.tips : [];
         const trash = Array.isArray(shift.trash) ? shift.trash : [];
         const selected = selectedShiftIds.has(String(shift.id));
+        const canRestoreShift = currentRole === 'admin' || currentRole === 'developer';
         return `
             <div class="shift-card ${selected ? 'selected' : ''}">
                 <div class="shift-card-head">
@@ -6537,6 +6541,7 @@ async function renderShiftArchive() {
                     <div>В кассе + TIP: <b>${formatAmd(summary.totalWithTipAMD)}</b></div>
                     <div>Разница: <b>${formatAmd(summary.finalDiffAMD)}</b></div>
                 </div>
+                ${canRestoreShift ? `<div class="shift-card-actions"><button type="button" class="shift-card-restore-btn" onclick="restoreArchiveShift('${escapeHtml(shift.id)}', event)">ВОССТАНОВИТЬ СМЕНУ</button></div>` : ''}
             </div>`;
     }).join('');
 }
@@ -7281,9 +7286,17 @@ function applyRestoredShiftLocalState(shift = {}) {
     lowerLocalHistoryMarkerForRestoredBills(restoredBills);
 }
 
-async function restoreArchiveShift() {
+async function restoreArchiveShift(id = null, event = null) {
+    event?.stopPropagation?.();
     if (currentRole !== 'admin' && currentRole !== 'developer') return;
-    const shift = lastArchivePrintShift;
+    const targetId = id ?? lastArchivePrintShift?.id;
+    let shift = targetId && lastArchivePrintShift && String(lastArchivePrintShift.id) === String(targetId)
+        ? lastArchivePrintShift
+        : null;
+    if (!shift && targetId) {
+        const archive = await loadShiftArchiveForReports();
+        shift = archive.find(item => String(item.id) === String(targetId));
+    }
     if (!shift?.id) return;
 
     const ok = await showAppConfirm({
