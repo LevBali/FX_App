@@ -1003,6 +1003,10 @@ body.silent-refresh .trash-item {
                             <span class="manager-only-total">КАССИР: <b id="totalBillsCashierAMD">0 ֏</b></span>
                             <span class="manager-only-total">МЕНЕДЖЕР: <b id="totalBillsManagerAMD">0 ֏</b></span>
                         </div>
+                        <div class="total-row" id="billCountsLine" style="font-size:10px; color:#bbb; flex-wrap:wrap; gap:4px; margin-top:3px;">
+                            <span>ЧЕКИ КАССИР: <b id="totalBillsCashierCount">0</b></span>
+                            <span class="manager-only-total">ЧЕКИ МЕНЕДЖЕР: <b id="totalBillsManagerCount">0</b></span>
+                        </div>
                         <div class="total-row" style="margin-top:5px;">В КАССЕ + TIP: <b id="totalWithTip" style="color:#55efc4; font-size:17px;">0 ֏</b></div>
                         <div class="total-row" style="font-size:11px; color:#ff7675;">НЕДОПЛАТА: <span id="totalShortage" style="font-weight:bold;">0 ֏</span></div>
                         <div class="total-row" style="font-size:11px; border-top:1px dashed #555; padding-top:5px; margin-top:5px;">РАЗНИЦА: <span id="finalDiff" style="font-weight:bold;">0 ֏</span></div>
@@ -2500,6 +2504,21 @@ function normalizeRates(value = {}) {
     return result;
 }
 
+function readCachedRates() {
+    try {
+        const cached = JSON.parse(localStorage.getItem(RATES_STORAGE_KEY) || '{}');
+        return normalizeRates(cached);
+    } catch {
+        return { ...DEFAULT_RATES };
+    }
+}
+
+function writeCachedRates(ratesInput) {
+    const rates = normalizeRates(ratesInput);
+    localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates));
+    return rates;
+}
+
 function canEditRates() {
     if (currentTestMode) return false;
     return currentRole === 'admin' || currentRole === 'developer';
@@ -2545,9 +2564,13 @@ function updateRateAccess() {
 async function loadRatesFromStore() {
     try {
         const result = await ipcRenderer.invoke('get-rates');
-        applyRates(result?.rates || DEFAULT_RATES);
+        const rates = result?.rates ? writeCachedRates(result.rates) : readCachedRates();
+        applyRates(rates);
+        if (result?.ok === false) {
+            console.warn('Cannot sync rates from main PC, using cached rates:', result.error || result);
+        }
     } catch (err) {
-        applyRates(JSON.parse(localStorage.getItem(RATES_STORAGE_KEY) || '{}'));
+        applyRates(readCachedRates());
         console.error('Cannot load rates:', err);
     }
     updateRateAccess();
@@ -2559,9 +2582,10 @@ async function saveRatesToStoreNow() {
         return;
     }
     const rates = currentRateValues();
-    localStorage.setItem(RATES_STORAGE_KEY, JSON.stringify(rates));
+    writeCachedRates(rates);
     try {
-        await ipcRenderer.invoke('save-rates', { rates });
+        const result = await ipcRenderer.invoke('save-rates', { rates });
+        if (result?.rates) writeCachedRates(result.rates);
     } catch (err) {
         console.error('Cannot save rates:', err);
     }
@@ -4639,7 +4663,8 @@ async function renderWithoutRefreshEffect() {
 async function refreshWorkspaceFromDisk(options = {}) {
     if (!currentOperator || !isMainWorkspaceOpen()) return;
     const before = workspaceRenderSignature();
-    if (!canEditRates()) await loadRatesFromStore();
+    const networkConfig = normalizeNetworkConfig(collectNetworkConfig());
+    if (!canEditRates() || networkConfig.mode === 'client') await loadRatesFromStore();
     await syncBillsFromDisk();
     const after = workspaceRenderSignature();
     if (options.forceRender || before !== after) {
@@ -5838,6 +5863,34 @@ function addTableTotalByRole(totals, bill, value) {
     const key = tableRoleForBill(bill);
     totals[key] = (Number(totals[key]) || 0) + (Number(value) || 0);
     return totals;
+}
+
+function emptyBillCountsByRole() {
+    return { cashier: 0, manager: 0, ownCashier: 0, ownManager: 0 };
+}
+
+function billBelongsToCurrentOperator(bill = {}) {
+    const activeUser = String(currentOperator || '').trim();
+    return Boolean(activeUser) && String(bill.user || '').trim() === activeUser;
+}
+
+function addBillCountByRole(counts, bill = {}) {
+    const key = tableRoleForBill(bill);
+    counts[key] = (Number(counts[key]) || 0) + 1;
+    if (billBelongsToCurrentOperator(bill)) {
+        const ownKey = key === 'cashier' ? 'ownCashier' : 'ownManager';
+        counts[ownKey] = (Number(counts[ownKey]) || 0) + 1;
+    }
+    return counts;
+}
+
+function displayBillCountsByRole(counts = {}) {
+    const safe = { ...emptyBillCountsByRole(), ...counts };
+    const role = String(currentRole || '').toLowerCase();
+    return {
+        cashier: role === 'cashier' ? safe.ownCashier : safe.cashier,
+        manager: role === 'admin' ? safe.ownManager : safe.manager
+    };
 }
 
 function mergeTableTotalsByRole(target, source = {}) {
@@ -7538,6 +7591,7 @@ async function updateTotals() {
     let totals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
     let tipTotals = { RUB: 0, USD: 0, EUR: 0, AMD: 0 };
     let tableTotalsByRole = emptyTableTotalsByRole();
+    let billCountsByRole = emptyBillCountsByRole();
     let planAMD = 0;
     let shortageTotal = 0;
 
@@ -7546,6 +7600,7 @@ async function updateTotals() {
         const billAmd = billStatsBillAmdValue(b);
         planAMD += billAmd;
         addTableTotalByRole(tableTotalsByRole, b, billAmd);
+        addBillCountByRole(billCountsByRole, b);
         addBillCashFlowToTotals(totals, b, { includeAMD: false });
         totals.AMD += billStatsReceivedAmdValue(b);
         shortageTotal += (parseFloat(b.shortageAMD) || 0);
@@ -7575,6 +7630,13 @@ async function updateTotals() {
     updateAmdEl('totalBillsAMD', planAMD);
     updateAmdEl('totalBillsCashierAMD', tableTotalsByRole.cashier);
     updateAmdEl('totalBillsManagerAMD', tableTotalsByRole.manager);
+    const displayedBillCounts = displayBillCountsByRole(billCountsByRole);
+    const updateCountEl = (id, val) => {
+        const el = document.getElementById(id);
+        if (el) el.innerText = String(Math.max(0, Math.round(Number(val) || 0)));
+    };
+    updateCountEl('totalBillsCashierCount', displayedBillCounts.cashier);
+    updateCountEl('totalBillsManagerCount', displayedBillCounts.manager);
     updateAmdEl('tipTabTotalBillsAMD', planAMD);
     updateAmdEl('tipTabTotalBillsCashierAMD', tableTotalsByRole.cashier);
     updateAmdEl('tipTabTotalBillsManagerAMD', tableTotalsByRole.manager);

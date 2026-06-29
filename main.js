@@ -3593,7 +3593,12 @@ ipcMain.handle('merge-auth-store', async (event, payload) => {
 
 ipcMain.handle('get-rates', async () => {
     try {
-        return await handleIpcChannel('get-rates');
+        const result = await handleIpcChannel('get-rates');
+        const config = readNetworkConfig();
+        if (config.mode === 'client' && config.host && result?.rates) {
+            return { ...result, rates: writeRatesSettings(result.rates), cachedLocal: true };
+        }
+        return result;
     } catch (err) {
         return { ok: false, error: err.message || String(err), rates: readRatesSettings() };
     }
@@ -3601,7 +3606,12 @@ ipcMain.handle('get-rates', async () => {
 
 ipcMain.handle('save-rates', async (event, payload) => {
     try {
-        return await handleIpcChannel('save-rates', payload);
+        const result = await handleIpcChannel('save-rates', payload);
+        const config = readNetworkConfig();
+        if (config.mode === 'client' && config.host && result?.rates) {
+            return { ...result, rates: writeRatesSettings(result.rates), cachedLocal: true };
+        }
+        return result;
     } catch (err) {
         return { ok: false, error: err.message || String(err), rates: readRatesSettings() };
     }
